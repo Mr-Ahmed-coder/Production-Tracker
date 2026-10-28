@@ -17,9 +17,7 @@ const cookieName = () =>
 const cookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite:
-    process.env.COOKIE_SAMESITE ||
-    (process.env.NODE_ENV === "production" ? "none" : "lax"),
+  sameSite: process.env.COOKIE_SAMESITE || "lax",
   path: "/",
 });
 const publicUser = (u) => ({ id: u.id, name: u.name, email: u.email });

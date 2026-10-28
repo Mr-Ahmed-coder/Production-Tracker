@@ -57,26 +57,12 @@ export function getAllowedOrigins() {
   return Array.from(origins);
 }
 
-function matchesOrigin(allowedList, candidateOrigin) {
-  if (!candidateOrigin) return false;
-  return allowedList.some((allowed) => {
-    if (allowed === candidateOrigin) return true;
-    if (allowed.includes("*")) {
-      const pattern = new RegExp(
-        `^${allowed.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`,
-      );
-      return pattern.test(candidateOrigin);
-    }
-    return false;
-  });
-}
-
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
       const allowed = getAllowedOrigins();
-      if (matchesOrigin(allowed, origin)) {
+      if (allowed.includes(origin)) {
         return callback(null, true);
       }
       return callback(null, false);
@@ -103,8 +89,7 @@ app.use("/api", (req, res, next) => {
       : null;
 
     const isAllowed =
-      reqOrigin &&
-      (matchesOrigin(allowed, reqOrigin) || reqOrigin === selfOrigin);
+      reqOrigin && (allowed.includes(reqOrigin) || reqOrigin === selfOrigin);
 
     if (
       req.get("X-ProdTrack-Request") !== "1" ||
