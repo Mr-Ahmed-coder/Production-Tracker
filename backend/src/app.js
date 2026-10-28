@@ -22,7 +22,7 @@ app.use((_req, res, next) => {
 export function getAllowedOrigins() {
   const configured = (process.env.CLIENT_ORIGIN || "http://127.0.0.1:5173")
     .split(",")
-    .map((o) => o.trim())
+    .map((o) => o.trim().replace(/\/$/, ""))
     .filter(Boolean);
 
   const origins = new Set(configured);
@@ -57,12 +57,26 @@ export function getAllowedOrigins() {
   return Array.from(origins);
 }
 
+function matchesOrigin(allowedList, candidateOrigin) {
+  if (!candidateOrigin) return false;
+  return allowedList.some((allowed) => {
+    if (allowed === candidateOrigin) return true;
+    if (allowed.includes("*")) {
+      const pattern = new RegExp(
+        `^${allowed.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`,
+      );
+      return pattern.test(candidateOrigin);
+    }
+    return false;
+  });
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
       const allowed = getAllowedOrigins();
-      if (allowed.includes(origin)) {
+      if (matchesOrigin(allowed, origin)) {
         return callback(null, true);
       }
       return callback(null, false);
@@ -89,7 +103,8 @@ app.use("/api", (req, res, next) => {
       : null;
 
     const isAllowed =
-      reqOrigin && (allowed.includes(reqOrigin) || reqOrigin === selfOrigin);
+      reqOrigin &&
+      (matchesOrigin(allowed, reqOrigin) || reqOrigin === selfOrigin);
 
     if (
       req.get("X-ProdTrack-Request") !== "1" ||
