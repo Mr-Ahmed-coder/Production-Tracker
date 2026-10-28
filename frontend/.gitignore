@@ -1,0 +1,8 @@
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment secrets
+.env
+.env.*
+!.env.example

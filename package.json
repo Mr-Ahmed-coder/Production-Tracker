@@ -1,0 +1,23 @@
+{
+  "name": "studymomentum",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,api \"npm run dev -w frontend\" \"npm run dev -w backend\"",
+    "build": "npm run build -w frontend",
+    "start": "node backend/src/server.js",
+    "lint": "npm run lint -w frontend",
+    "test": "npm run test -w backend",
+    "typecheck": "npm run typecheck -w frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.9.10"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "StudyMomentum",
+  "short_name": "StudyMomentum",
+  "description": "A personal productivity platform for students, professionals, and lifelong learners.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eff1e7",
+  "theme_color": "#eff1e7",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
