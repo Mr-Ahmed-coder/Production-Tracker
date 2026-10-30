@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://studymomentum.onrender.com/api/:path*"
+      "destination": "https://production-tracker-k7qd.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
