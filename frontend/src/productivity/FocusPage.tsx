@@ -40,7 +40,7 @@ export function FocusPage({
   const [taskId, setTask] = useState("");
   const [goalId, setGoal] = useState("");
   const [discard, setDiscard] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [, setClockTick] = useState(0);
   const [period, setPeriod] = useState("week");
   const [historyDate, setHistoryDate] = useState("");
   const [chartDays, setChartDays] = useState<ActivityDay[]>([]);
@@ -56,6 +56,7 @@ export function FocusPage({
   const [customFocus, setCustomFocus] = useState(30);
   const [customBreak, setCustomBreak] = useState(5);
   const [targetAlerted, setTargetAlerted] = useState(false);
+  const alertedSessionIdRef = useRef<string | null>(null);
 
   // Sound & Notification preferences
   const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -69,6 +70,7 @@ export function FocusPage({
   const [inBreak, setInBreak] = useState(false);
   const [breakTotalSeconds, setBreakTotalSeconds] = useState(300);
   const [breakRemaining, setBreakRemaining] = useState(300);
+  const breakEndAtRef = useRef<number | null>(null);
   const breakIntervalRef = useRef<number | null>(null);
 
   // History filtering
@@ -91,30 +93,36 @@ export function FocusPage({
     );
   }, [notificationsEnabled]);
 
-  // Handle active session monotonic clock ticking
+  // Smooth clock updates for active running sessions
   useEffect(() => {
-    setTick(0);
-    const anchor = performance.now();
-    const t = window.setInterval(
-      () => setTick(performance.now() - anchor),
-      500,
-    );
-    return () => clearInterval(t);
-  }, [s]);
+    if (s?.state !== "running") return;
+    const timer = window.setInterval(() => {
+      setClockTick((t) => (t + 1) % 1000000);
+    }, 250);
 
-  // Interpolate against monotonic browser clock; server timestamps remain authoritative
-  const elapsed = s
-    ? s.durationMs +
-      (s.state === "running"
-        ? Math.max(
-            0,
-            Math.min(
-              tick,
-              Date.parse(s.leaseUntil || s.serverNow) - Date.parse(s.serverNow),
-            ),
-          )
-        : 0)
-    : 0;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        setClockTick((t) => (t + 1) % 1000000);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [s?.id, s?.state]);
+
+  // Wall-clock calculation: s.durationMs + elapsed time since last server sync
+  // Capped at 120s (matching the 2-minute server lease) only if completely offline/disconnected
+  const clientAnchor =
+    s?.clientReceivedAt ??
+    (s?.serverNow ? Date.parse(s.serverNow) : Date.now());
+  const elapsedSinceSync =
+    s?.state === "running"
+      ? Math.min(Math.max(0, Date.now() - clientAnchor), 120000)
+      : 0;
+  const elapsed = s ? s.durationMs + elapsedSinceSync : 0;
 
   const seconds = Math.floor(elapsed / 1000);
   const hours = Math.floor(seconds / 3600);
@@ -148,11 +156,13 @@ export function FocusPage({
   // Trigger completion alerts when target is reached
   useEffect(() => {
     if (
-      s?.state === "running" &&
+      s?.id &&
+      s.state === "running" &&
       targetSeconds !== null &&
       seconds >= targetSeconds &&
-      !targetAlerted
+      alertedSessionIdRef.current !== s.id
     ) {
+      alertedSessionIdRef.current = s.id;
       setTargetAlerted(true);
       if (soundEnabled) playChime();
       if (notificationsEnabled) {
@@ -163,54 +173,71 @@ export function FocusPage({
       }
     }
   }, [
+    s?.id,
     s?.state,
     seconds,
     targetSeconds,
-    targetAlerted,
     soundEnabled,
     notificationsEnabled,
     presetFocusMinutes,
     presetBreakMinutes,
   ]);
 
-  // Reset alert flag when session changes or ends
+  // Reset alert flag when session is discarded, finished, or cleared
   useEffect(() => {
-    if (!s || s.state !== "running") {
+    if (!s) {
+      alertedSessionIdRef.current = null;
       setTargetAlerted(false);
     }
   }, [s]);
 
-  // Break mode countdown
+  // Break mode countdown using target wall-clock timestamp so background tabs do not pause/freeze
   useEffect(() => {
-    if (!inBreak) {
+    if (!inBreak || !breakEndAtRef.current) {
       if (breakIntervalRef.current) clearInterval(breakIntervalRef.current);
       return;
     }
 
-    breakIntervalRef.current = window.setInterval(() => {
-      setBreakRemaining((prev) => {
-        if (prev <= 1) {
-          if (breakIntervalRef.current) clearInterval(breakIntervalRef.current);
-          if (soundEnabled) playChime();
-          if (notificationsEnabled) {
-            showNotification(
-              "Break complete!",
-              "Ready to begin your next focused work session.",
-            );
-          }
-          return 0;
+    const updateBreak = () => {
+      if (!breakEndAtRef.current) return;
+      const remainingMs = breakEndAtRef.current - Date.now();
+      const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+      setBreakRemaining(remainingSec);
+      if (remainingSec <= 0) {
+        if (breakIntervalRef.current) clearInterval(breakIntervalRef.current);
+        breakEndAtRef.current = null;
+        if (soundEnabled) playChime();
+        if (notificationsEnabled) {
+          showNotification(
+            "Break complete!",
+            "Ready to begin your next focused work session.",
+          );
         }
-        return prev - 1;
-      });
-    }, 1000);
+      }
+    };
+
+    updateBreak();
+    breakIntervalRef.current = window.setInterval(updateBreak, 500);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        updateBreak();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       if (breakIntervalRef.current) clearInterval(breakIntervalRef.current);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [inBreak, soundEnabled, notificationsEnabled]);
 
   function startBreak(mins = presetBreakMinutes) {
+    if (s && s.state === "running") {
+      void store.change(`/focus/${s.id}/pause`);
+    }
     const totalSec = mins * 60;
+    breakEndAtRef.current = Date.now() + totalSec * 1000;
     setBreakTotalSeconds(totalSec);
     setBreakRemaining(totalSec);
     setInBreak(true);
@@ -218,6 +245,7 @@ export function FocusPage({
 
   function stopBreak() {
     setInBreak(false);
+    breakEndAtRef.current = null;
     if (breakIntervalRef.current) clearInterval(breakIntervalRef.current);
   }
 
@@ -329,6 +357,8 @@ export function FocusPage({
                       taskId: taskId || null,
                       goalId: goalId || null,
                     });
+                  } else if (s.state === "paused") {
+                    void store.change(`/focus/${s.id}/resume`);
                   }
                 }}
               >
@@ -638,7 +668,7 @@ export function FocusPage({
         )}
 
         <p className="muted timer-explanation">
-          Keep StudyMomentum open while focusing. A 45-second server lease limits
+          Keep StudyMomentum open while focusing. A server connection lease limits
           counting after connection loss; an expired session pauses and needs
           Resume. Paused time is excluded. Sessions stop counting after 24
           hours.

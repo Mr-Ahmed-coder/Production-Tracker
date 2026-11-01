@@ -9,6 +9,7 @@ export type FocusSession = {
   durationMs: number;
   serverNow: string;
   leaseUntil: string | null;
+  clientReceivedAt?: number;
 };
 export type Preferences = { timeZone: string; dailyTargetMinutes: number };
 export type ActivityDay = {

@@ -1,5 +1,5 @@
 import { dateInZone } from "./calendar.js";
-export const LEASE_MS = 45000;
+export const LEASE_MS = 120000;
 export const SESSION_MS = 24 * 60 * 60 * 1000;
 export function intervals(session, now = new Date()) {
   const result = session.segments.map((s) => ({
