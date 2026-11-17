@@ -2,8 +2,16 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import Task from "../models/Task.js";
 import { hashToken, invalid, objectBody } from "../security.js";
+import { validDate } from "../domain/calendar.js";
 export const taskRouter = Router();
-const fields = ["title", "priority", "dueDate", "completed", "category"];
+const fields = [
+  "title",
+  "priority",
+  "dueDate",
+  "scheduledDate",
+  "completed",
+  "category",
+];
 function taskInput(body, partial = false) {
   objectBody(body);
   if (Object.keys(body).some((k) => !fields.includes(k)))
@@ -28,6 +36,12 @@ function taskInput(body, partial = false) {
     )
       throw invalid("Enter a valid due date.");
   }
+  if (
+    "scheduledDate" in data &&
+    data.scheduledDate !== null &&
+    !validDate(data.scheduledDate)
+  )
+    throw invalid("Enter a valid planned date.");
   if ("priority" in data && !["High", "Medium", "Low"].includes(data.priority))
     throw invalid("Invalid priority.");
   if ("completed" in data && typeof data.completed !== "boolean")
@@ -41,12 +55,13 @@ function taskInput(body, partial = false) {
     throw invalid("No changes supplied.");
   return data;
 }
-const serialize = (t) => ({
+export const serializeTask = (t) => ({
   id: String(t._id),
   title: t.title,
   priority: t.priority,
   completed: t.completed,
   dueDate: t.dueDate,
+  scheduledDate: t.scheduledDate ?? null,
   category: t.category,
 });
 taskRouter.get("/", async (req, res) => {
@@ -88,7 +103,7 @@ taskRouter.get("/", async (req, res) => {
         .limit(limit),
     ]);
     return res.json({
-      tasks: docs.map(serialize),
+      tasks: docs.map(serializeTask),
       total,
       page,
       limit,
@@ -97,7 +112,7 @@ taskRouter.get("/", async (req, res) => {
   }
   res.json({
     tasks: (await Task.find(query).sort({ dueDate: 1, createdAt: 1 })).map(
-      serialize,
+      serializeTask,
     ),
   });
 });
@@ -107,7 +122,7 @@ taskRouter.post("/", async (req, res) => {
     user: req.user._id,
     completedAt: req.body.completed === true ? new Date() : null,
   });
-  res.status(201).json({ task: serialize(task) });
+  res.status(201).json({ task: serializeTask(task) });
 });
 // Validate the entire batch first. Stable per-user import keys make retries idempotent.
 taskRouter.post("/import", async (req, res) => {
@@ -150,7 +165,7 @@ taskRouter.patch("/:id", async (req, res) => {
     task.completedAt = data.completed ? new Date() : null;
   Object.assign(task, data);
   await task.save();
-  res.json({ task: serialize(task) });
+  res.json({ task: serializeTask(task) });
 });
 taskRouter.delete("/:id", async (req, res) => {
   const task = await Task.findOneAndDelete({

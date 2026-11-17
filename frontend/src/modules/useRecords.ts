@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, messageOf } from "../lib/api";
-export function useRecords<T extends { id: string }>(resource: string) {
+export function useRecords<T extends { id: string }>(
+  resource: string,
+  enabled = true,
+) {
   const [items, setItems] = useState<T[]>([]),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
@@ -36,9 +39,9 @@ export function useRecords<T extends { id: string }>(resource: string) {
   useEffect(() => {
     alive.current = true;
     const controller = new AbortController();
-    void refresh(controller.signal);
+    if (enabled) void refresh(controller.signal);
     const timer =
-      resource === "/habits"
+      enabled && resource === "/habits"
         ? window.setInterval(() => void refresh(undefined, true), 60000)
         : undefined;
     return () => {
@@ -46,7 +49,7 @@ export function useRecords<T extends { id: string }>(resource: string) {
       controller.abort();
       if (timer) clearInterval(timer);
     };
-  }, [resource, refresh]);
+  }, [resource, refresh, enabled]);
   async function change(
     path: string,
     method: string,

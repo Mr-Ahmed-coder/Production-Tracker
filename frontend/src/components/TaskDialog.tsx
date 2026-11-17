@@ -67,10 +67,12 @@ export function TaskDialog({
   onClose,
   onSave,
   task,
+  defaultDate,
 }: {
   onClose: () => void;
   onSave: (task: Omit<Task, "id" | "completed">) => Promise<void>;
   task?: Task;
+  defaultDate?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(task?.title || "");
@@ -90,6 +92,7 @@ export function TaskDialog({
         title: title.trim(),
         priority: data.get("priority") as Task["priority"],
         dueDate: String(data.get("date")),
+        scheduledDate: String(data.get("planned")) || null,
         category: String(data.get("category")).trim() || "Personal",
       });
       onClose();
@@ -154,10 +157,21 @@ export function TaskDialog({
               name="date"
               type="date"
               required
-              defaultValue={task?.dueDate || localDate()}
+              defaultValue={task?.dueDate || defaultDate || localDate()}
             />
           </label>
         </div>
+        <label>
+          Planned date (optional)
+          <input
+            name="planned"
+            type="date"
+            defaultValue={task?.scheduledDate ?? defaultDate ?? ""}
+          />
+          <small className="muted">
+            Leave blank to plan this task on its due date.
+          </small>
+        </label>
         <label>
           Category
           <input

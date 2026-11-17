@@ -11,6 +11,7 @@ import { goalRouter } from "./routes/goals.js";
 import { habitRouter } from "./routes/habits.js";
 import { focusRouter } from "./routes/focus.js";
 import { productivityRouter } from "./routes/productivity.js";
+import { calendarRouter } from "./routes/calendar.js";
 export const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
@@ -91,10 +92,7 @@ app.use("/api", (req, res, next) => {
     const isAllowed =
       reqOrigin && (allowed.includes(reqOrigin) || reqOrigin === selfOrigin);
 
-    if (
-      req.get("X-ProdTrack-Request") !== "1" ||
-      !isAllowed
-    ) {
+    if (req.get("X-ProdTrack-Request") !== "1" || !isAllowed) {
       return res
         .status(403)
         .json({ error: "Request origin could not be verified." });
@@ -118,13 +116,16 @@ app.use("/api", (_req, res, next) =>
         .json({ error: "Database unavailable. Please try again shortly." }),
 );
 app.use("/api/auth", authRouter);
+app.use("/api/calendar", requireAuth, calendarRouter);
 app.use("/api/tasks", requireAuth, taskRouter);
 app.use("/api/notes", requireAuth, noteRouter);
 app.use("/api/goals", requireAuth, goalRouter);
 app.use("/api/habits", requireAuth, habitRouter);
 app.use("/api/focus", requireAuth, focusRouter);
 app.use("/api/productivity", requireAuth, productivityRouter);
-app.use("/api", (_req, res) => res.status(404).json({ error: "Route not found" }));
+app.use("/api", (_req, res) =>
+  res.status(404).json({ error: "Route not found" }),
+);
 
 const distPath = fileURLToPath(new URL("../../frontend/dist", import.meta.url));
 if (fs.existsSync(distPath)) {
