@@ -174,7 +174,10 @@ export function TaskList({
                     )}
                     {t.completed ? "Completed" : "To do"}
                   </span>
-                  {full && <span>{t.dueDate}</span>}
+                  {full && <span>Due {t.dueDate}</span>}
+                  {t.scheduledDate && t.scheduledDate !== t.dueDate && (
+                    <span>Planned {t.scheduledDate}</span>
+                  )}
                 </div>
               </div>
               <span className={`priority ${t.priority.toLowerCase()}`}>

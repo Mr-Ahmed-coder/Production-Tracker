@@ -50,7 +50,7 @@ function createHeartbeatWorker(intervalMs: number, onTick: () => void) {
   }
 }
 
-export function useProductivity(revision: string) {
+export function useProductivity(revision: string, calendarOnly = false) {
   const [session, setSession] = useState<FocusSession | null>(null),
     [history, setHistory] = useState<FocusSession[]>([]),
     [data, setData] = useState<Analytics | null>(null),
@@ -74,19 +74,17 @@ export function useProductivity(revision: string) {
     try {
       const [active, list, analytics, prefs] = await Promise.all([
         api<{ item: FocusSession | null }>("/focus/active"),
-        api<{ items: FocusSession[] }>("/focus"),
-        api<Analytics>("/productivity/analytics"),
-        api<Preferences>("/productivity/settings"),
+        calendarOnly ? null : api<{ items: FocusSession[] }>("/focus"),
+        calendarOnly ? null : api<Analytics>("/productivity/analytics"),
+        calendarOnly ? null : api<Preferences>("/productivity/settings"),
       ]);
       if (alive.current && turn === generation.current) {
         setSession(
-          active.item
-            ? { ...active.item, clientReceivedAt: Date.now() }
-            : null,
+          active.item ? { ...active.item, clientReceivedAt: Date.now() } : null,
         );
-        setHistory(list.items);
-        setData(analytics);
-        setSettings(prefs);
+        if (list) setHistory(list.items);
+        if (analytics) setData(analytics);
+        if (prefs) setSettings(prefs);
         setError("");
       }
     } catch (e) {
@@ -94,7 +92,7 @@ export function useProductivity(revision: string) {
     } finally {
       if (alive.current) setLoading(false);
     }
-  }, []);
+  }, [calendarOnly]);
 
   useEffect(() => {
     alive.current = true;

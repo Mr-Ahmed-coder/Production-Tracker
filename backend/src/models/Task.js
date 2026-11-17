@@ -11,12 +11,14 @@ const schema = new mongoose.Schema(
     completedAt: { type: Date, default: null },
     completed: { type: Boolean, default: false },
     dueDate: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+    scheduledDate: { type: String, default: null },
     category: { type: String, trim: true, maxlength: 60, default: "Personal" },
     importKey: { type: String },
   },
   { timestamps: true, optimisticConcurrency: true },
 );
 schema.index({ user: 1, dueDate: 1, createdAt: 1 });
+schema.index({ user: 1, scheduledDate: 1 });
 schema.index(
   { user: 1, importKey: 1 },
   { unique: true, partialFilterExpression: { importKey: { $type: "string" } } },

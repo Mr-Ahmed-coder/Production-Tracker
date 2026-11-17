@@ -4,6 +4,7 @@ export type Task = {
   priority: "High" | "Medium" | "Low";
   completed: boolean;
   dueDate: string;
+  scheduledDate?: string | null;
   category: string;
 };
 export const localDate = () => {

@@ -27,4 +27,5 @@ const schema = new mongoose.Schema(
   { timestamps: true, optimisticConcurrency: true },
 );
 schema.index({ user: 1, archived: 1, targetDate: 1 });
+schema.index({ user: 1, archived: 1, "milestones.targetDate": 1 });
 export default mongoose.model("Goal", schema);

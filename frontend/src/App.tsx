@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Link, Route, Routes, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
+  CalendarDays,
   ListTodo,
   NotebookPen,
   Target,
@@ -48,8 +49,10 @@ import { InsightsPage } from "./productivity/InsightsPage";
 import { ExportCard } from "./productivity/ExportCard";
 import { hours } from "./productivity/format";
 import { StudyMomentumIcon } from "./components/BrandLogo";
+import { CalendarPage } from "./modules/CalendarPage";
 const navigation = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/tasks", label: "Tasks", icon: ListTodo },
   { path: "/notes", label: "Notes", icon: NotebookPen },
   { path: "/goals", label: "Goals", icon: Target },
@@ -61,6 +64,9 @@ const navigation = [
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 export default function App() {
+  const location = useLocation();
+  const onCalendar =
+    location.pathname === "/calendar" || location.pathname === "/calendar/";
   const {
     tasks,
     error,
@@ -72,10 +78,10 @@ export default function App() {
     toggleTask,
     deleteTask,
     importTasks,
-  } = useTasks();
-  const notes = useRecords<Note>("/notes");
-  const goals = useRecords<Goal>("/goals");
-  const habits = useRecords<Habit>("/habits");
+  } = useTasks(!onCalendar);
+  const notes = useRecords<Note>("/notes", !onCalendar);
+  const goals = useRecords<Goal>("/goals", !onCalendar);
+  const habits = useRecords<Habit>("/habits", !onCalendar);
   const modulesBusy = notes.busy || goals.busy || habits.busy;
   const { user, logout } = useAuth();
   const [accountError, setAccountError] = useState("");
@@ -110,13 +116,14 @@ export default function App() {
     }
   }
 
+  const [calendarRevision, setCalendarRevision] = useState(0);
   const [dialog, setDialog] = useState(false);
   const [search, setSearch] = useState("");
   const [panel, setPanel] = useState<"notifications" | "profile" | null>(null);
   const [toast, setToast] = useState("");
-  const location = useLocation();
   const productivity = useProductivity(
     JSON.stringify([tasks, goals.items, habits.items, location.pathname]),
+    onCalendar,
   );
   const focusToday = productivity.data?.days.at(-1);
   const calendarToday = productivity.data?.today || localDate();
@@ -131,9 +138,11 @@ export default function App() {
       (priorityFilter === "all" || t.priority === priorityFilter) &&
       (!dateFilter || t.dueDate === dateFilter),
   );
-  const today = matching.filter((t) => t.dueDate === calendarToday);
+  const today = matching.filter(
+    (t) => (t.scheduledDate ?? t.dueDate) === calendarToday,
+  );
   const completed = tasks.filter(
-    (t) => t.dueDate === calendarToday && t.completed,
+    (t) => (t.scheduledDate ?? t.dueDate) === calendarToday && t.completed,
   ).length;
   useEffect(() => {
     if (!toast) return;
@@ -146,7 +155,12 @@ export default function App() {
         Skip to content
       </a>
       <aside className="sidebar">
-        <Link className="brand" to="/" aria-label="StudyMomentum home" title="StudyMomentum">
+        <Link
+          className="brand"
+          to="/"
+          aria-label="StudyMomentum home"
+          title="StudyMomentum"
+        >
           <StudyMomentumIcon size={26} className="sidebar-brand-icon" />
         </Link>
         <nav aria-label="Main navigation">
@@ -288,23 +302,25 @@ export default function App() {
               </p>
             </div>
             <div className="heading-actions">
-              <label className="search-box">
-                <Search size={16} />
-                <input
-                  aria-label="Search tasks"
-                  placeholder="Search tasks…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    aria-label="Clear search"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </label>
+              {!onCalendar && (
+                <label className="search-box">
+                  <Search size={16} />
+                  <input
+                    aria-label="Search tasks"
+                    placeholder="Search tasks…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button
+                      onClick={() => setSearch("")}
+                      aria-label="Clear search"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </label>
+              )}
               <button
                 className="primary-button"
                 onClick={() => {
@@ -387,6 +403,7 @@ export default function App() {
             </p>
           )}
           {search &&
+            !onCalendar &&
             location.pathname !== "/" &&
             location.pathname !== "/tasks" && (
               <TaskList
@@ -452,7 +469,9 @@ export default function App() {
                         label: "Today’s tasks",
                         value: String(
                           tasks.filter(
-                            (t) => t.dueDate === calendarToday && !t.completed,
+                            (t) =>
+                              (t.scheduledDate ?? t.dueDate) ===
+                                calendarToday && !t.completed,
                           ).length,
                         ),
                         change: `${completed} done`,
@@ -596,6 +615,10 @@ export default function App() {
               path="/goals"
               element={<GoalsPage store={goals} tasks={tasks} />}
             />
+            <Route
+              path="/calendar"
+              element={<CalendarPage revision={calendarRevision} />}
+            />
             <Route path="/habits" element={<HabitsPage store={habits} />} />
             <Route
               path="/notes"
@@ -634,7 +657,8 @@ export default function App() {
                     <div>
                       <strong>Task storage</strong>
                       <p>
-                        Tasks, notes, goals, and focus sessions are saved securely in MongoDB for your StudyMomentum account.
+                        Tasks, notes, goals, and focus sessions are saved
+                        securely in MongoDB for your StudyMomentum account.
                       </p>
                     </div>
                     <span className="status done">
@@ -707,6 +731,7 @@ export default function App() {
           onSave={async (task) => {
             if (editing) await editTask(editing.id, task);
             else await addTask(task);
+            if (onCalendar) setCalendarRevision((n) => n + 1);
             setToast(
               editing
                 ? "Task updated."

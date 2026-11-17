@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Task } from "../data/demo";
 import { api, messageOf } from "../lib/api";
-export function useTasks() {
+export function useTasks(enabled = true) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,12 +27,12 @@ export function useTasks() {
   useEffect(() => {
     alive.current = true;
     const controller = new AbortController();
-    void refresh(controller.signal);
+    if (enabled) void refresh(controller.signal);
     return () => {
       alive.current = false;
       controller.abort();
     };
-  }, [refresh]);
+  }, [refresh, enabled]);
   async function mutate<T>(action: () => Promise<T>): Promise<T> {
     if (lock.current)
       throw new Error("Please wait for the current change to finish.");
