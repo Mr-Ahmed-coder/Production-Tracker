@@ -39,6 +39,16 @@ Pre-release validation: ESLint and TypeScript passed; production build passed; a
 
 ## Hosting inspection limits
 
-The configured Render backend returned health `database: connected`, and protected recurring-task requests returned JSON 401. GitHub also advertises a separate `studymomentum` Render deployment with a failed deployment status; that hostname timed out during inspection. It is not the Vercel proxy destination and has not been substituted. Private Render logs/environment and Vercel project settings require hosting-dashboard access; these are not established by public smoke tests. Source binds to `0.0.0.0` and Render's `PORT`, with `/api/health` configured as its health check.
+The configured Render backend returned health `database: connected`, and protected recurring-task requests returned JSON 401. GitHub also advertises a separate `studymomentum` Render deployment with a failed deployment status; that hostname timed out during inspection. It is not the Vercel proxy destination and has not been substituted. Private Render logs/environment remain unverified because its dashboard requires sign-in. Source binds to `0.0.0.0` and Render's `PORT`, with `/api/health` configured as its health check.
+
+The existing signed-in Vercel dashboard confirmed root directory `frontend`, framework Vite, build command `npm run build`, output `dist`, Node 24.x and production branch `main`. No settings were changed. The effective routing header and byte-identical production assets independently confirm that the frontend configuration was included in the release.
+
+## Production results
+
+Application release `9123b7bc23c8244d04f125653ba343e1ac69c52a` was pushed normally to main and Vercel reported success: https://vercel.com/engahmedmohamedali24-9146s-projects/production-tracker/5oKCP5aPPcvSbusLFuohRJnkD9gW . The API health endpoint also reported that release commit and `database: connected`.
+
+All eleven requested routes returned 200 SPA HTML on both requests. A real browser opened each route in a fresh tab, then refreshed it; all reached the expected login screen with a missing session. No Vercel 404 remained. At mobile width 390px, direct calendar navigation and refresh also reached login. Screenshots in `verification/` show the expected unauthenticated screen, not authenticated calendar content.
+
+The deployed index and all three referenced JavaScript/CSS assets matched local production-build bytes (SHA-256), with correct MIME types and HTTP 200. The complete smoke run passed, including `/api/health` 200 JSON, missing/invalid sessions 401 JSON, `/api`, `/api/` and unknown API paths 404 JSON, invalid-origin logout 403 and API `no-store` headers. No production data was written or deleted.
 
 Production valid-session/sidebar/login/logout workflows require an authorized signed-in browser or test credentials; isolated regression tests cover these behaviors without adding production users. The production smoke checks separately verify routing, assets and unauthenticated session protection. Cold starts, hosting outages and network interruptions remain possible; bounded retry and clear errors cannot guarantee service availability.
