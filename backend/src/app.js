@@ -12,6 +12,7 @@ import { habitRouter } from "./routes/habits.js";
 import { focusRouter } from "./routes/focus.js";
 import { productivityRouter } from "./routes/productivity.js";
 import { calendarRouter } from "./routes/calendar.js";
+import { recurringTaskRouter } from "./routes/recurringTasks.js";
 export const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
@@ -116,6 +117,7 @@ app.use("/api", (_req, res, next) =>
         .json({ error: "Database unavailable. Please try again shortly." }),
 );
 app.use("/api/auth", authRouter);
+app.use("/api/recurring-tasks", requireAuth, recurringTaskRouter);
 app.use("/api/calendar", requireAuth, calendarRouter);
 app.use("/api/tasks", requireAuth, taskRouter);
 app.use("/api/notes", requireAuth, noteRouter);

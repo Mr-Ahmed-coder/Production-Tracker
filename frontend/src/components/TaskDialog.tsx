@@ -68,11 +68,13 @@ export function TaskDialog({
   onSave,
   task,
   defaultDate,
+  onRepeat,
 }: {
   onClose: () => void;
   onSave: (task: Omit<Task, "id" | "completed">) => Promise<void>;
   task?: Task;
   defaultDate?: string;
+  onRepeat?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(task?.title || "");
@@ -131,6 +133,16 @@ export function TaskDialog({
           {task ? "Refine your next step." : "One small step."}
         </h2>
         <p className="muted">What would you like to accomplish?</p>
+        {!task && onRepeat && (
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={busy}
+            onClick={onRepeat}
+          >
+            Repeat across a date range
+          </button>
+        )}
         <label>
           Task title
           <input

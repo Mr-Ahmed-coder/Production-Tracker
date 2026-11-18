@@ -6,6 +6,8 @@ import Completion from "../models/HabitCompletion.js";
 import FocusSession from "../models/FocusSession.js";
 import DailyReview from "../models/DailyReview.js";
 import ProductivitySettings from "../models/ProductivitySettings.js";
+import RecurringTask from "../models/RecurringTask.js";
+import TaskOccurrence from "../models/TaskOccurrence.js";
 import User from "../models/User.js";
 import { dateInZone } from "./calendar.js";
 import { durationMs } from "./focus.js";
@@ -13,7 +15,12 @@ import { durationMs } from "./focus.js";
 function escapeCsv(val) {
   if (val === null || val === undefined) return "";
   const str = String(val);
-  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+  if (
+    str.includes(",") ||
+    str.includes('"') ||
+    str.includes("\n") ||
+    str.includes("\r")
+  ) {
     return '"' + str.replace(/"/g, '""') + '"';
   }
   return str;
@@ -26,18 +33,31 @@ function toCsv(headers, rows) {
 }
 
 export async function exportUserData(userId, format = "json", entity = "all") {
-  const [user, settings, tasks, notes, goals, habits, completions, sessions, reviews] =
-    await Promise.all([
-      User.findById(userId).select("name email createdAt"),
-      ProductivitySettings.findOne({ user: userId }),
-      Task.find({ user: userId }).sort({ createdAt: -1 }),
-      Note.find({ user: userId }).sort({ pinned: -1, updatedAt: -1 }),
-      Goal.find({ user: userId }).sort({ createdAt: -1 }),
-      Habit.find({ user: userId }).sort({ createdAt: -1 }),
-      Completion.find({ user: userId }).sort({ date: -1 }),
-      FocusSession.find({ user: userId }).sort({ createdAt: -1 }),
-      DailyReview.find({ user: userId }).sort({ date: -1 }),
-    ]);
+  const [
+    user,
+    settings,
+    tasks,
+    notes,
+    goals,
+    habits,
+    completions,
+    sessions,
+    reviews,
+    recurringTasks,
+    taskOccurrences,
+  ] = await Promise.all([
+    User.findById(userId).select("name email createdAt"),
+    ProductivitySettings.findOne({ user: userId }),
+    Task.find({ user: userId }).sort({ createdAt: -1 }),
+    Note.find({ user: userId }).sort({ pinned: -1, updatedAt: -1 }),
+    Goal.find({ user: userId }).sort({ createdAt: -1 }),
+    Habit.find({ user: userId }).sort({ createdAt: -1 }),
+    Completion.find({ user: userId }).sort({ date: -1 }),
+    FocusSession.find({ user: userId }).sort({ createdAt: -1 }),
+    DailyReview.find({ user: userId }).sort({ date: -1 }),
+    RecurringTask.find({ user: userId }).select("-createKey -createHash -user"),
+    TaskOccurrence.find({ user: userId }).select("-user"),
+  ]);
 
   const timeZone = settings?.timeZone || "Africa/Kampala";
   const today = dateInZone(timeZone);
@@ -45,7 +65,16 @@ export async function exportUserData(userId, format = "json", entity = "all") {
   if (format === "csv") {
     switch (entity) {
       case "tasks": {
-        const headers = ["ID", "Title", "Priority", "Category", "Due Date", "Completed", "Completed At", "Created At"];
+        const headers = [
+          "ID",
+          "Title",
+          "Priority",
+          "Category",
+          "Due Date",
+          "Completed",
+          "Completed At",
+          "Created At",
+        ];
         const rows = tasks.map((t) => [
           t.id,
           t.title,
@@ -56,10 +85,23 @@ export async function exportUserData(userId, format = "json", entity = "all") {
           t.completedAt ? t.completedAt.toISOString() : "",
           t.createdAt ? t.createdAt.toISOString() : "",
         ]);
-        return { filename: `prodtrack-tasks-${today}.csv`, mime: "text/csv; charset=utf-8", content: toCsv(headers, rows) };
+        return {
+          filename: `prodtrack-tasks-${today}.csv`,
+          mime: "text/csv; charset=utf-8",
+          content: toCsv(headers, rows),
+        };
       }
       case "focus": {
-        const headers = ["ID", "Created At", "State", "Active", "Task ID", "Goal ID", "Duration Minutes", "Segments Count"];
+        const headers = [
+          "ID",
+          "Created At",
+          "State",
+          "Active",
+          "Task ID",
+          "Goal ID",
+          "Duration Minutes",
+          "Segments Count",
+        ];
         const rows = sessions.map((s) => [
           s.id,
           s.createdAt ? s.createdAt.toISOString() : "",
@@ -70,10 +112,23 @@ export async function exportUserData(userId, format = "json", entity = "all") {
           (durationMs(s) / 60000).toFixed(2),
           s.segments ? s.segments.length : 0,
         ]);
-        return { filename: `prodtrack-focus-${today}.csv`, mime: "text/csv; charset=utf-8", content: toCsv(headers, rows) };
+        return {
+          filename: `prodtrack-focus-${today}.csv`,
+          mime: "text/csv; charset=utf-8",
+          content: toCsv(headers, rows),
+        };
       }
       case "notes": {
-        const headers = ["ID", "Title", "Category", "Pinned", "Journal Date", "Tags", "Updated At", "Content"];
+        const headers = [
+          "ID",
+          "Title",
+          "Category",
+          "Pinned",
+          "Journal Date",
+          "Tags",
+          "Updated At",
+          "Content",
+        ];
         const rows = notes.map((n) => [
           n.id,
           n.title,
@@ -84,10 +139,21 @@ export async function exportUserData(userId, format = "json", entity = "all") {
           n.updatedAt ? n.updatedAt.toISOString() : "",
           n.content || "",
         ]);
-        return { filename: `prodtrack-notes-${today}.csv`, mime: "text/csv; charset=utf-8", content: toCsv(headers, rows) };
+        return {
+          filename: `prodtrack-notes-${today}.csv`,
+          mime: "text/csv; charset=utf-8",
+          content: toCsv(headers, rows),
+        };
       }
       case "habits": {
-        const headers = ["ID", "Title", "Timezone", "Start Date", "Archived", "Created At"];
+        const headers = [
+          "ID",
+          "Title",
+          "Timezone",
+          "Start Date",
+          "Archived",
+          "Created At",
+        ];
         const rows = habits.map((h) => [
           h.id,
           h.title,
@@ -96,10 +162,20 @@ export async function exportUserData(userId, format = "json", entity = "all") {
           h.archived ? "Yes" : "No",
           h.createdAt ? h.createdAt.toISOString() : "",
         ]);
-        return { filename: `prodtrack-habits-${today}.csv`, mime: "text/csv; charset=utf-8", content: toCsv(headers, rows) };
+        return {
+          filename: `prodtrack-habits-${today}.csv`,
+          mime: "text/csv; charset=utf-8",
+          content: toCsv(headers, rows),
+        };
       }
       case "reviews": {
-        const headers = ["Date", "Went Well", "Challenges", "Tomorrow Priority", "Updated At"];
+        const headers = [
+          "Date",
+          "Went Well",
+          "Challenges",
+          "Tomorrow Priority",
+          "Updated At",
+        ];
         const rows = reviews.map((r) => [
           r.date,
           r.wentWell || "",
@@ -107,10 +183,23 @@ export async function exportUserData(userId, format = "json", entity = "all") {
           r.tomorrow || "",
           r.updatedAt ? r.updatedAt.toISOString() : "",
         ]);
-        return { filename: `prodtrack-reviews-${today}.csv`, mime: "text/csv; charset=utf-8", content: toCsv(headers, rows) };
+        return {
+          filename: `prodtrack-reviews-${today}.csv`,
+          mime: "text/csv; charset=utf-8",
+          content: toCsv(headers, rows),
+        };
       }
       case "goals": {
-        const headers = ["ID", "Title", "Category", "Term", "Status", "Target Date", "Milestones Count", "Archived"];
+        const headers = [
+          "ID",
+          "Title",
+          "Category",
+          "Term",
+          "Status",
+          "Target Date",
+          "Milestones Count",
+          "Archived",
+        ];
         const rows = goals.map((g) => [
           g.id,
           g.title,
@@ -121,20 +210,93 @@ export async function exportUserData(userId, format = "json", entity = "all") {
           g.milestones ? g.milestones.length : 0,
           g.archived ? "Yes" : "No",
         ]);
-        return { filename: `prodtrack-goals-${today}.csv`, mime: "text/csv; charset=utf-8", content: toCsv(headers, rows) };
+        return {
+          filename: `prodtrack-goals-${today}.csv`,
+          mime: "text/csv; charset=utf-8",
+          content: toCsv(headers, rows),
+        };
       }
       default: {
         // Combined summary CSV containing tasks and focus summaries
-        const headers = ["Entity", "ID", "Title / Date", "Status / State", "Detail", "Timestamp"];
-        const rows = [
-          ...tasks.map((t) => ["Task", t.id, t.title, t.completed ? "Completed" : "Pending", `Priority: ${t.priority}, Due: ${t.dueDate}`, t.createdAt ? t.createdAt.toISOString() : ""]),
-          ...sessions.map((s) => ["Focus Session", s.id, s.createdAt ? s.createdAt.toISOString().slice(0, 10) : "", s.state, `${(durationMs(s) / 60000).toFixed(1)} mins`, s.createdAt ? s.createdAt.toISOString() : ""]),
-          ...notes.map((n) => ["Note", n.id, n.title, n.journalDate ? "Journal" : "Note", n.category || "General", n.updatedAt ? n.updatedAt.toISOString() : ""]),
-          ...habits.map((h) => ["Habit", h.id, h.title, h.archived ? "Archived" : "Active", `Timezone: ${h.timeZone}`, h.createdAt ? h.createdAt.toISOString() : ""]),
-          ...reviews.map((r) => ["Daily Review", r.id, r.date, "Saved", r.wentWell ? r.wentWell.slice(0, 50) : "", r.updatedAt ? r.updatedAt.toISOString() : ""]),
-          ...goals.map((g) => ["Goal", g.id, g.title, g.status, `Category: ${g.category}, Target: ${g.targetDate}`, g.createdAt ? g.createdAt.toISOString() : ""]),
+        const headers = [
+          "Entity",
+          "ID",
+          "Title / Date",
+          "Status / State",
+          "Detail",
+          "Timestamp",
         ];
-        return { filename: `prodtrack-export-${today}.csv`, mime: "text/csv; charset=utf-8", content: toCsv(headers, rows) };
+        const rows = [
+          ...recurringTasks.map((r) => [
+            "Repeating Task",
+            r.id,
+            r.title,
+            r.deletedAt ? "Removed" : r.stoppedAfter ? "Stopped" : "Active",
+            r.startDate + " to " + r.endDate,
+            r.createdAt?.toISOString() || "",
+          ]),
+          ...taskOccurrences.map((r) => [
+            "Task Occurrence",
+            r.id,
+            r.title,
+            r.completed ? "Completed" : r.skipped ? "Skipped" : "Incomplete",
+            r.date,
+            r.completedAt?.toISOString() || "",
+          ]),
+          ...tasks.map((t) => [
+            "Task",
+            t.id,
+            t.title,
+            t.completed ? "Completed" : "Pending",
+            `Priority: ${t.priority}, Due: ${t.dueDate}`,
+            t.createdAt ? t.createdAt.toISOString() : "",
+          ]),
+          ...sessions.map((s) => [
+            "Focus Session",
+            s.id,
+            s.createdAt ? s.createdAt.toISOString().slice(0, 10) : "",
+            s.state,
+            `${(durationMs(s) / 60000).toFixed(1)} mins`,
+            s.createdAt ? s.createdAt.toISOString() : "",
+          ]),
+          ...notes.map((n) => [
+            "Note",
+            n.id,
+            n.title,
+            n.journalDate ? "Journal" : "Note",
+            n.category || "General",
+            n.updatedAt ? n.updatedAt.toISOString() : "",
+          ]),
+          ...habits.map((h) => [
+            "Habit",
+            h.id,
+            h.title,
+            h.archived ? "Archived" : "Active",
+            `Timezone: ${h.timeZone}`,
+            h.createdAt ? h.createdAt.toISOString() : "",
+          ]),
+          ...reviews.map((r) => [
+            "Daily Review",
+            r.id,
+            r.date,
+            "Saved",
+            r.wentWell ? r.wentWell.slice(0, 50) : "",
+            r.updatedAt ? r.updatedAt.toISOString() : "",
+          ]),
+          ...goals.map((g) => [
+            "Goal",
+            g.id,
+            g.title,
+            g.status,
+            `Category: ${g.category}, Target: ${g.targetDate}`,
+            g.createdAt ? g.createdAt.toISOString() : "",
+          ]),
+        ];
+        return {
+          filename: `prodtrack-export-${today}.csv`,
+          mime: "text/csv; charset=utf-8",
+          content: toCsv(headers, rows),
+        };
       }
     }
   }
@@ -152,6 +314,30 @@ export async function exportUserData(userId, format = "json", entity = "all") {
       timeZone: settings?.timeZone || "Africa/Kampala",
       dailyTargetMinutes: settings?.dailyTargetMinutes || 180,
     },
+    recurringTasks: recurringTasks.map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      priority: r.priority,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      weekdays: r.weekdays,
+      timeZone: r.timeZone,
+      stoppedAfter: r.stoppedAfter,
+      deletedAt: r.deletedAt,
+    })),
+    taskOccurrences: taskOccurrences.map((r) => ({
+      id: r.id,
+      seriesId: String(r.series),
+      date: r.date,
+      completed: r.completed,
+      skipped: r.skipped,
+      completedAt: r.completedAt,
+      lastCompletedAt: r.lastCompletedAt,
+      title: r.title,
+      priority: r.priority,
+      description: r.description,
+    })),
     tasks: tasks.map((t) => ({
       id: t.id,
       title: t.title,

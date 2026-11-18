@@ -11,6 +11,7 @@ import {
   goalProgress,
 } from "./calendar.js";
 import { intervals, splitInterval } from "./focus.js";
+import { recurringRange, recurringCompletions } from "./recurringTasks.js";
 export async function settingsFor(user) {
   return (
     (await ProductivitySettings.findOne({ user })) || {
@@ -22,7 +23,15 @@ export async function settingsFor(user) {
 export async function activity(user, from, to, now = new Date()) {
   const settings = await settingsFor(user),
     timeZone = settings.timeZone;
-  const [tasks, goals, habits, completions, sessions] = await Promise.all([
+  const [
+    tasks,
+    goals,
+    habits,
+    completions,
+    sessions,
+    recurring,
+    recurringDone,
+  ] = await Promise.all([
     Task.find({ user }),
     Goal.find({ user }),
     Habit.find({ user }),
@@ -35,12 +44,16 @@ export async function activity(user, from, to, now = new Date()) {
         $lt: new Date(+new Date(to + "T00:00:00Z") + 48 * 3600000),
       },
     }),
+    recurringRange(user, from, to),
+    recurringCompletions(user, from, to, timeZone, dateInZone),
   ]);
   const days = [];
   for (let d = from; d <= to; d = shiftDate(d, 1))
     days.push({
       date: d,
       focusMs: 0,
+      recurringPlanned: 0,
+      recurringCompleted: 0,
       planned: 0,
       plannedCompleted: 0,
       tasksCompleted: 0,
@@ -69,6 +82,21 @@ export async function activity(user, from, to, now = new Date()) {
       const day = map.get(dateInZone(timeZone, task.completedAt));
       if (day) day.tasksCompleted++;
     }
+  }
+  for (const r of recurring) {
+    const d = map.get(r.date);
+    if (d) {
+      d.planned++;
+      d.recurringPlanned++;
+      if (r.completed) {
+        d.plannedCompleted++;
+        d.recurringCompleted++;
+      }
+    }
+  }
+  for (const r of recurringDone) {
+    const d = map.get(r.date);
+    if (d) d.tasksCompleted++;
   }
   for (const h of habits) {
     const done = new Set(
@@ -120,26 +148,38 @@ export async function activity(user, from, to, now = new Date()) {
       milestonesTotal: g.milestones.length,
     })),
     achieved,
-    tasks: tasks
-      .filter((t) => t.dueDate >= from && t.dueDate <= to)
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        dueDate: t.dueDate,
-        completed: t.completed,
+    tasks: [
+      ...recurring.map((r) => ({
+        id: r.id,
+        title: r.title,
+        dueDate: r.date,
+        completed: r.completed,
+        recurring: true,
       })),
-    completedTasks: tasks
-      .filter(
-        (t) =>
-          t.completed &&
-          t.completedAt &&
-          map.has(dateInZone(timeZone, t.completedAt)),
-      )
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        date: dateInZone(timeZone, t.completedAt),
-      })),
+      ...tasks
+        .filter((t) => t.dueDate >= from && t.dueDate <= to)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          dueDate: t.dueDate,
+          completed: t.completed,
+        })),
+    ],
+    completedTasks: [
+      ...recurringDone,
+      ...tasks
+        .filter(
+          (t) =>
+            t.completed &&
+            t.completedAt &&
+            map.has(dateInZone(timeZone, t.completedAt)),
+        )
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          date: dateInZone(timeZone, t.completedAt),
+        })),
+    ],
     completedHabits: habits.flatMap((h) =>
       completions
         .filter(

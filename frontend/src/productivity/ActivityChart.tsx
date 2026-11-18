@@ -20,8 +20,8 @@ export function ActivityChart({
       ? [["focusHours", "Focus hours", "#c3e73e"]]
       : kind === "tasks"
         ? [
-            ["planned", "Tasks due", "#e2e5d8"],
-            ["plannedCompleted", "Due tasks completed", "#c3e73e"],
+            ["planned", "Tasks planned / due", "#e2e5d8"],
+            ["plannedCompleted", "Planned / due tasks completed", "#c3e73e"],
             ["tasksCompleted", "Completed on date", "#576b43"],
           ]
         : [

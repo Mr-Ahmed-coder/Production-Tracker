@@ -196,3 +196,8 @@ No password reset, email verification, MFA, account editing, global logout, or c
 The production frontend output is in `frontend/dist`. A future production host needs SPA route fallback, a same-origin API/reverse proxy, HTTPS, and an exact production `CLIENT_ORIGIN`; Vite's proxy is for development only.
 
 No deployment, GitHub push or merge was performed.
+
+
+## Repeating tasks and date ranges
+
+Calendar now supports independent daily task occurrences over an inclusive range of up to 30 calendar days. See [Repeating-task architecture, APIs and verification](docs/REPEATING-TASKS.md).

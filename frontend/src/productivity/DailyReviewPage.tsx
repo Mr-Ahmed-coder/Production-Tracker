@@ -141,7 +141,7 @@ export function DailyReviewPage({ store }: { store: ProductivityStore }) {
               <strong>
                 {d.plannedCompleted}/{d.planned}
               </strong>
-              <span>Due tasks completed</span>
+              <span>Planned / due tasks completed</span>
             </div>
             <div>
               <strong>
@@ -162,7 +162,7 @@ export function DailyReviewPage({ store }: { store: ProductivityStore }) {
               ) : (
                 <p className="muted">No recorded task completions.</p>
               )}
-              <h3>Unfinished tasks due</h3>
+              <h3>Unfinished planned / due tasks</h3>
               {summary?.tasks.some((t) => !t.completed) ? (
                 summary.tasks
                   .filter((t) => !t.completed)

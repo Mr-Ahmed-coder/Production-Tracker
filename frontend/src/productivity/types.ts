@@ -17,6 +17,8 @@ export type ActivityDay = {
   focusMs: number;
   focusHours: number;
   targetPercent: number;
+  recurringPlanned: number;
+  recurringCompleted: number;
   planned: number;
   plannedCompleted: number;
   tasksCompleted: number;

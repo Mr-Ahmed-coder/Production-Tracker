@@ -10,6 +10,8 @@ import Completion from "../models/HabitCompletion.js";
 import FocusSession from "../models/FocusSession.js";
 import ProductivitySettings from "../models/ProductivitySettings.js";
 import DailyReview from "../models/DailyReview.js";
+import RecurringTask from "../models/RecurringTask.js";
+import TaskOccurrence from "../models/TaskOccurrence.js";
 mongoose.set("bufferCommands", false);
 export async function connectDatabase() {
   if (!process.env.MONGODB_URI)
@@ -32,6 +34,8 @@ export async function connectDatabase() {
     serverSelectionTimeoutMS: 15000,
   });
   await Promise.all([
+    RecurringTask.init(),
+    TaskOccurrence.init(),
     FocusSession.init(),
     ProductivitySettings.init(),
     DailyReview.init(),

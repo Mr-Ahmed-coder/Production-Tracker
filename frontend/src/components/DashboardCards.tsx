@@ -132,7 +132,7 @@ export function TaskList({
             ? "Loading your tasks…"
             : unavailable
               ? "Tasks could not be loaded."
-              : `${tasks.filter((t) => t.completed).length} of ${tasks.length} completed · one step at a time`
+              : `${tasks.filter((t) => t.completed).length} of ${tasks.length} completed · one-time tasks`
         }
       />
       <div className="task-list">

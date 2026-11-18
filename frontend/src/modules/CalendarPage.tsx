@@ -7,6 +7,8 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Repeat2,
+  SkipForward,
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -16,10 +18,16 @@ import { shiftDate } from "../productivity/format";
 import { TaskDeleteDialog, TaskDialog } from "../components/TaskDialog";
 import { CardHeading } from "../components/DashboardCards";
 
+import {
+  RepeatingTaskDialog,
+  RepeatingTaskList,
+  type RecurringOccurrence,
+} from "./RepeatingTaskDialog";
 type CalendarTask = Task & { overdue: boolean; completedAt: string | null };
 type Day = {
   date: string;
   tasks: CalendarTask[];
+  recurringTasks: RecurringOccurrence[];
   deadlines: CalendarTask[];
   habits: {
     id: string;
@@ -59,8 +67,10 @@ const fullDate = (day: string) =>
     year: "numeric",
   });
 function counts(day?: Day) {
-  const tasks = day?.tasks.length ?? 0,
-    done = day?.tasks.filter((t) => t.completed).length ?? 0;
+  const tasks = (day?.tasks.length ?? 0) + (day?.recurringTasks?.length ?? 0),
+    done =
+      (day?.tasks.filter((t) => t.completed).length ?? 0) +
+      (day?.recurringTasks?.filter((t) => t.completed).length ?? 0);
   const habits = day?.habits.filter((h) => !h.future) ?? [];
   return {
     tasks,
@@ -85,6 +95,11 @@ function duration(ms: number) {
 }
 export function CalendarPage({ revision }: { revision: number }) {
   const [mode, setMode] = useState<Mode>("month"),
+    [repeatEditor, setRepeatEditor] = useState<{
+      date: string;
+      id?: string;
+    } | null>(null),
+    [repeatList, setRepeatList] = useState(false),
     [selection, setSelection] = useState(""),
     [panel, setPanel] = useState(false),
     [data, setData] = useState<Data | null>(null),
@@ -266,6 +281,82 @@ export function CalendarPage({ revision }: { revision: number }) {
       }),
     ).catch(() => {});
   }
+  function toggleRecurring(record: RecurringOccurrence, checked: boolean) {
+    void mutate(
+      "/recurring-tasks/" + record.seriesId + "/occurrences/" + record.date,
+      "PUT",
+      { completed: checked },
+      (current) => ({
+        ...current,
+        days: current.days.map((d) => ({
+          ...d,
+          recurringTasks: d.recurringTasks.map((r) =>
+            r.id === record.id ? { ...r, completed: checked } : r,
+          ),
+        })),
+      }),
+    ).catch(() => {});
+  }
+  function recurringRow(r: RecurringOccurrence) {
+    return (
+      <li
+        className={"calendar-activity" + (r.completed ? " is-completed" : "")}
+        key={r.id}
+      >
+        <label>
+          <input
+            type="checkbox"
+            checked={r.completed}
+            disabled={busy || !r.editable || Boolean(error)}
+            onChange={(e) => toggleRecurring(r, e.target.checked)}
+          />
+          <span>
+            <strong>{r.title}</strong>
+            <small>
+              Repeating task · {r.priority} · {r.timeZone}
+              {r.retained ? " · saved history" : ""}
+            </small>
+            {r.description && <small>{r.description}</small>}
+          </span>
+        </label>
+        <div className="calendar-task-actions">
+          <button
+            className="icon-button"
+            disabled={busy}
+            aria-label={"Edit series " + r.title}
+            onClick={() => setRepeatEditor({ id: r.seriesId, date: r.date })}
+          >
+            <Repeat2 size={15} />
+          </button>
+          {!r.completed && r.editable && (
+            <button
+              className="icon-button"
+              disabled={busy}
+              aria-label={"Skip " + r.title + " on " + r.date}
+              onClick={() =>
+                void mutate(
+                  "/recurring-tasks/" + r.seriesId + "/occurrences/" + r.date,
+                  "PUT",
+                  { skipped: true },
+                  (current) => ({
+                    ...current,
+                    days: current.days.map((d) => ({
+                      ...d,
+                      recurringTasks: d.recurringTasks.filter(
+                        (v) => v.id !== r.id,
+                      ),
+                    })),
+                  }),
+                ).catch(() => {})
+              }
+            >
+              <SkipForward size={15} />
+            </button>
+          )}
+        </div>
+      </li>
+    );
+  }
   function toggleHabit(
     habit: Day["habits"][number],
     date: string,
@@ -366,6 +457,22 @@ export function CalendarPage({ revision }: { revision: number }) {
               : "Plan tasks and review your daily activity."
           }
         />
+        <div className="repeat-calendar-actions">
+          <button
+            className="secondary-button"
+            disabled={busy || !ready}
+            onClick={() => setRepeatEditor({ date: selected })}
+          >
+            <Repeat2 size={15} /> Repeat task
+          </button>
+          <button
+            className="text-link"
+            disabled={busy}
+            onClick={() => setRepeatList(true)}
+          >
+            Manage repeating tasks
+          </button>
+        </div>
         <div className="calendar-toolbar">
           <div className="calendar-controls">
             <button
@@ -480,6 +587,10 @@ export function CalendarPage({ revision }: { revision: number }) {
                   kind: "task" as const,
                   record: t,
                 })),
+                ...(item?.recurringTasks ?? []).map((r) => ({
+                  kind: "recurring" as const,
+                  record: r,
+                })),
                 ...(item?.habits ?? []).map((h) => ({
                   kind: "habit" as const,
                   record: h,
@@ -554,16 +665,23 @@ export function CalendarPage({ revision }: { revision: number }) {
                               busy ||
                               Boolean(error) ||
                               (activity.kind === "habit" &&
+                                !activity.record.editable) ||
+                              (activity.kind === "recurring" &&
                                 !activity.record.editable)
                             }
                             onChange={(e) =>
                               activity.kind === "task"
                                 ? toggleTask(activity.record, e.target.checked)
-                                : toggleHabit(
-                                    activity.record,
-                                    date,
-                                    e.target.checked,
-                                  )
+                                : activity.kind === "recurring"
+                                  ? toggleRecurring(
+                                      activity.record,
+                                      e.target.checked,
+                                    )
+                                  : toggleHabit(
+                                      activity.record,
+                                      date,
+                                      e.target.checked,
+                                    )
                             }
                           />
                           <span title={record.title}>{record.title}</span>
@@ -739,6 +857,12 @@ export function CalendarPage({ revision }: { revision: number }) {
               ) : (
                 <p className="muted">No tasks planned.</p>
               )}
+              <h3>Repeating tasks</h3>
+              {day.recurringTasks?.length ? (
+                <ul>{day.recurringTasks.map(recurringRow)}</ul>
+              ) : (
+                <p className="muted">No repeating tasks scheduled.</p>
+              )}
               <h3>Scheduled habits</h3>
               {day.habits.length ? (
                 <ul>
@@ -802,6 +926,26 @@ export function CalendarPage({ revision }: { revision: number }) {
           )}
         </aside>
       )}
+      {repeatEditor && (
+        <RepeatingTaskDialog
+          seriesId={repeatEditor.id}
+          defaultDate={repeatEditor.date}
+          onClose={() => setRepeatEditor(null)}
+          onSaved={() => {
+            setReload((n) => n + 1);
+            setNotice("Repeating task changes saved.");
+          }}
+        />
+      )}
+      {repeatList && (
+        <RepeatingTaskList
+          onClose={() => setRepeatList(false)}
+          onEdit={(id) => {
+            setRepeatList(false);
+            setRepeatEditor({ id, date: selected });
+          }}
+        />
+      )}
       {deleting && (
         <TaskDeleteDialog
           task={deleting}
@@ -821,6 +965,10 @@ export function CalendarPage({ revision }: { revision: number }) {
       {editor && (
         <TaskDialog
           task={editor.task}
+          onRepeat={() => {
+            setRepeatEditor({ date: editor.date });
+            setEditor(null);
+          }}
           defaultDate={editor.task ? undefined : editor.date}
           onClose={() => setEditor(null)}
           onSave={(body) =>

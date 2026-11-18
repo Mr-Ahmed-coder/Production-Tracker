@@ -141,9 +141,10 @@ export default function App() {
   const today = matching.filter(
     (t) => (t.scheduledDate ?? t.dueDate) === calendarToday,
   );
-  const completed = tasks.filter(
-    (t) => (t.scheduledDate ?? t.dueDate) === calendarToday && t.completed,
-  ).length;
+  const completed =
+    tasks.filter(
+      (t) => (t.scheduledDate ?? t.dueDate) === calendarToday && t.completed,
+    ).length + (focusToday?.recurringCompleted ?? 0);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 3500);
@@ -472,11 +473,18 @@ export default function App() {
                             (t) =>
                               (t.scheduledDate ?? t.dueDate) ===
                                 calendarToday && !t.completed,
-                          ).length,
+                          ).length +
+                            (focusToday?.recurringPlanned ?? 0) -
+                            (focusToday?.recurringCompleted ?? 0),
                         ),
                         change: `${completed} done`,
-                        caption: "Progress over perfection",
-                        to: "/tasks",
+                        caption: "One-time and repeating tasks",
+                        unavailable:
+                          loading ||
+                          Boolean(error) ||
+                          productivity.loading ||
+                          Boolean(productivity.error),
+                        to: "/calendar",
                         demo: false,
                       },
                       {

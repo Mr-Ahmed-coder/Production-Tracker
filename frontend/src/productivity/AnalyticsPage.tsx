@@ -85,7 +85,7 @@ export function AnalyticsPage({ store }: { store: ProductivityStore }) {
                 <strong>
                   {completed}/{planned}
                 </strong>
-                <span>Due tasks completed</span>
+                <span>Planned / due tasks completed</span>
               </div>
               <div>
                 <strong>
@@ -131,7 +131,8 @@ export function AnalyticsPage({ store }: { store: ProductivityStore }) {
               <p className="empty">No saved goals yet.</p>
             )}
             <p className="muted">
-              Timezone: {data.timeZone}. Task planning uses current due dates;
+              Timezone: {data.timeZone}. One-time task planning uses current due
+              dates; repeating tasks use their scheduled occurrence dates;
               deleting or reopening tasks updates these figures. “Completed on
               date” uses recorded completion timestamps.{" "}
               {data.legacyCompletedTasks} older completed tasks have no known
