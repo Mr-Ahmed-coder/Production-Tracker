@@ -313,6 +313,85 @@ test("Calendar against isolated MongoDB", { timeout: 120000 }, async (t) => {
         assert.equal(data.days[0].goals[0].progress, 25);
       },
     );
+    await t.test(
+      "historical planner checks use actual completion time; edits and deletion stay scoped",
+      async () => {
+        const created = await request(
+          "/tasks",
+          "POST",
+          {
+            title: "Historical checklist task",
+            dueDate: "2000-01-03",
+            scheduledDate: "2000-01-01",
+          },
+          alice.cookie,
+        );
+        assert.equal(created.status, 201);
+        const id = created.data.task.id;
+        const before = Date.now();
+        assert.equal(
+          (
+            await request(
+              "/tasks/" + id,
+              "PATCH",
+              { completed: true },
+              alice.cookie,
+            )
+          ).status,
+          200,
+        );
+        const stored = await Task.findById(id),
+          timestamp = +stored.completedAt;
+        assert.ok(timestamp >= before && timestamp <= Date.now());
+        assert.equal(stored.scheduledDate, "2000-01-01");
+        assert.equal(stored.dueDate, "2000-01-03");
+        assert.equal(
+          (
+            await request(
+              "/tasks/" + id,
+              "PATCH",
+              { completedAt: "2000-01-01T00:00:00Z" },
+              alice.cookie,
+            )
+          ).status,
+          400,
+        );
+        await request(
+          "/tasks/" + id,
+          "PATCH",
+          { title: "Edited historic task" },
+          alice.cookie,
+        );
+        assert.equal(+(await Task.findById(id)).completedAt, timestamp);
+        const bucket = await calendarActivity(
+          owner,
+          "2000-01-01",
+          "2000-01-03",
+        );
+        assert.equal(bucket.days[0].tasks[0].completed, true);
+        assert.equal(bucket.days[2].deadlines[0].id, id);
+        assert.equal(
+          (await request("/tasks/" + id, "DELETE", undefined, bob.cookie))
+            .status,
+          404,
+        );
+        assert.ok(await Task.exists({ _id: id, user: owner }));
+        const goals = await Goal.countDocuments({ user: owner });
+        assert.equal(
+          (await request("/tasks/" + id, "DELETE", undefined, alice.cookie))
+            .status,
+          204,
+        );
+        const after = await calendarActivity(owner, "2000-01-01", "2000-01-03");
+        assert.equal(
+          after.days
+            .flatMap((d) => [...d.tasks, ...d.deadlines])
+            .some((t) => t.id === id),
+          false,
+        );
+        assert.equal(await Goal.countDocuments({ user: owner }), goals);
+      },
+    );
   } finally {
     if (server) await new Promise((resolve) => server.close(resolve));
     await mongoose.disconnect();

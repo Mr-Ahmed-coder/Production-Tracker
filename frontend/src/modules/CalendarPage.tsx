@@ -6,14 +6,14 @@ import {
   Clock3,
   Pencil,
   Plus,
-  Check,
+  Trash2,
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, messageOf } from "../lib/api";
 import { localDate, type Task } from "../data/demo";
 import { shiftDate } from "../productivity/format";
-import { TaskDialog } from "../components/TaskDialog";
+import { TaskDeleteDialog, TaskDialog } from "../components/TaskDialog";
 import { CardHeading } from "../components/DashboardCards";
 
 type CalendarTask = Task & { overdue: boolean; completedAt: string | null };
@@ -90,12 +90,30 @@ export function CalendarPage({ revision }: { revision: number }) {
     [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
     [mutationError, setMutationError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [deleting, setDeleting] = useState<Task | null>(null),
     [reload, setReload] = useState(0),
     [busy, setBusy] = useState(false),
     [editor, setEditor] = useState<{ date: string; task?: Task } | null>(null);
-  const saving = useRef(false),
+  const dataRef = useRef<Data | null>(null),
+    mounted = useRef(true),
+    requestVersion = useRef(0),
+    panelRef = useRef<HTMLElement>(null),
+    saving = useRef(false),
     dateButtons = useRef(new Map<string, HTMLButtonElement>()),
     focusDate = useRef("");
+  dataRef.current = data;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 3000);
+    return () => clearTimeout(timer);
+  }, [notice]);
   const today = data?.today ?? localDate(),
     selected = selection || today;
   const anchor = mode === "month" ? selected.slice(0, 7) + "-01" : selected;
@@ -114,17 +132,27 @@ export function CalendarPage({ revision }: { revision: number }) {
     const controller = new AbortController();
     const refresh = () => {
       if (saving.current) return;
+      const version = ++requestVersion.current;
       void api<Data>("/calendar?from=" + from + "&to=" + to, {
         signal: controller.signal,
       })
         .then((value) => {
-          if (!controller.signal.aborted) {
+          if (
+            !controller.signal.aborted &&
+            version === requestVersion.current &&
+            !saving.current
+          ) {
             setData(value);
             setError("");
           }
         })
         .catch((e) => {
-          if (!controller.signal.aborted) setError(messageOf(e));
+          if (
+            !controller.signal.aborted &&
+            version === requestVersion.current &&
+            !saving.current
+          )
+            setError(messageOf(e));
         });
     };
     refresh();
@@ -143,7 +171,16 @@ export function CalendarPage({ revision }: { revision: number }) {
   function select(date: string, open = false) {
     setSelection(date);
     setMutationError("");
-    if (open) setPanel(true);
+    if (open) {
+      setPanel(true);
+      window.requestAnimationFrame(() => {
+        if (window.matchMedia("(max-width: 680px)").matches)
+          panelRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+      });
+    }
   }
   function navigate(date: string) {
     setError("");
@@ -166,26 +203,93 @@ export function CalendarPage({ revision }: { revision: number }) {
     focusDate.current = next;
     navigate(next);
   }
-  async function mutate(path: string, method: string, body?: unknown) {
+  async function mutate(
+    path: string,
+    method: string,
+    body?: unknown,
+    optimistic?: (current: Data) => Data,
+  ) {
     if (saving.current) throw new Error("Please wait for the current change.");
+    const previous = dataRef.current;
     saving.current = true;
+    requestVersion.current++;
     setBusy(true);
     setMutationError("");
+    setNotice("");
+    if (optimistic)
+      setData((current) => (current ? optimistic(current) : current));
     try {
       await api(path, {
         method,
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
+      if (mounted.current)
+        setNotice(
+          method === "DELETE" && path.startsWith("/tasks/")
+            ? "Task deleted."
+            : "Progress saved.",
+        );
+    } catch (e) {
+      if (mounted.current) {
+        setData((current) =>
+          current?.from === previous?.from && current?.to === previous?.to
+            ? previous
+            : current,
+        );
+        setMutationError(messageOf(e));
+      }
+      throw e;
     } finally {
       saving.current = false;
-      setBusy(false);
-      setReload((i) => i + 1);
+      if (mounted.current) {
+        setBusy(false);
+        setReload((i) => i + 1);
+      }
     }
   }
-  const toggle = (path: string, method: string, body?: unknown) =>
-    void mutate(path, method, body).catch((e) =>
-      setMutationError(messageOf(e)),
-    );
+  function toggleTask(task: CalendarTask, checked: boolean) {
+    void mutate(
+      "/tasks/" + task.id,
+      "PATCH",
+      { completed: checked },
+      (current) => ({
+        ...current,
+        days: current.days.map((d) => ({
+          ...d,
+          tasks: d.tasks.map((t) =>
+            t.id === task.id ? { ...t, completed: checked } : t,
+          ),
+          deadlines: d.deadlines.map((t) =>
+            t.id === task.id ? { ...t, completed: checked } : t,
+          ),
+        })),
+      }),
+    ).catch(() => {});
+  }
+  function toggleHabit(
+    habit: Day["habits"][number],
+    date: string,
+    checked: boolean,
+  ) {
+    void mutate(
+      "/habits/" + habit.id + "/completions/" + date,
+      checked ? "PUT" : "DELETE",
+      undefined,
+      (current) => ({
+        ...current,
+        days: current.days.map((d) =>
+          d.date === date
+            ? {
+                ...d,
+                habits: d.habits.map((h) =>
+                  h.id === habit.id ? { ...h, completed: checked } : h,
+                ),
+              }
+            : d,
+        ),
+      }),
+    ).catch(() => {});
+  }
   const visible = ready
     ? data.days.filter(
         (d) => mode === "week" || d.date.slice(0, 7) === selected.slice(0, 7),
@@ -206,15 +310,16 @@ export function CalendarPage({ revision }: { revision: number }) {
   );
   function taskRow(t: CalendarTask) {
     return (
-      <li className="calendar-activity" key={t.id}>
+      <li
+        className={"calendar-activity" + (t.completed ? " is-completed" : "")}
+        key={t.id}
+      >
         <label>
           <input
             type="checkbox"
             checked={t.completed}
-            disabled={busy}
-            onChange={(e) =>
-              toggle("/tasks/" + t.id, "PATCH", { completed: e.target.checked })
-            }
+            disabled={busy || Boolean(error)}
+            onChange={(e) => toggleTask(t, e.target.checked)}
           />
           <span>
             <strong>{t.title}</strong>
@@ -223,18 +328,27 @@ export function CalendarPage({ revision }: { revision: number }) {
               {t.scheduledDate && t.scheduledDate !== t.dueDate
                 ? " · Planned " + t.scheduledDate
                 : ""}
-              {t.overdue && <em> · Overdue</em>}
             </small>
           </span>
         </label>
-        <button
-          className="icon-button"
-          aria-label={"Edit " + t.title}
-          disabled={busy}
-          onClick={() => setEditor({ task: t, date: selected })}
-        >
-          <Pencil size={15} />
-        </button>
+        <div className="calendar-task-actions">
+          <button
+            className="icon-button"
+            aria-label={"Edit " + t.title}
+            disabled={busy}
+            onClick={() => setEditor({ task: t, date: selected })}
+          >
+            <Pencil size={15} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label={"Delete " + t.title}
+            disabled={busy}
+            onClick={() => setDeleting(t)}
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
       </li>
     );
   }
@@ -331,78 +445,164 @@ export function CalendarPage({ revision }: { revision: number }) {
             Loading calendar activity…
           </p>
         )}
-        <div
-          className={
-            "calendar-grid " + (mode === "week" ? "calendar-week" : "")
-          }
-          role="group"
-          aria-label="Dates. Use arrow keys to move between dates."
-        >
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-            <span className="calendar-weekday" key={d}>
-              {d}
-            </span>
-          ))}
-          {dates.map((date) => {
-            const item = days.get(date),
-              c = counts(item),
-              n = c.tasks + c.habits,
-              complete = c.done + c.habitDone;
-            const overdue = Boolean(
-              item?.tasks.some((t) => t.overdue) ||
-              item?.deadlines.some((t) => t.overdue),
-            );
-            const boundary =
-              (item?.deadlines.length ?? 0) + (item?.goals.length ?? 0);
-            return (
-              <button
-                key={date}
-                ref={(node) => {
-                  if (node) dateButtons.current.set(date, node);
-                  else dateButtons.current.delete(date);
-                }}
-                type="button"
-                tabIndex={selected === date ? 0 : -1}
-                className={
-                  "calendar-cell" +
-                  (mode === "month" && date.slice(0, 7) !== selected.slice(0, 7)
-                    ? " outside"
-                    : "")
-                }
-                aria-current={date === today ? "date" : undefined}
-                aria-pressed={selected === date}
-                aria-controls="calendar-day-panel"
-                aria-label={
-                  fullDate(date) +
-                  (n ? ", " + complete + " of " + n + " done" : "") +
-                  (overdue ? ", overdue task" : "") +
-                  (boundary ? ", " + boundary + " deadlines" : "")
-                }
-                onKeyDown={(e) => arrow(e, date)}
-                onClick={() => select(date, true)}
-              >
-                <span className="calendar-cell-date">
-                  {date.slice(-2).replace(/^0/, "")}
-                </span>
-                {n > 0 && (
-                  <span
-                    className={
-                      "calendar-count" + (complete === n ? " all-done" : "")
-                    }
+        {mutationError && (
+          <p className="error-banner" role="alert">
+            {mutationError}
+          </p>
+        )}
+        <p className="calendar-feedback" role="status" aria-live="polite">
+          {busy
+            ? "Saving activity…"
+            : notice || "A little progress, one checkbox at a time."}
+        </p>
+        {mode === "month" && (
+          <p className="calendar-mobile-hint">
+            Swipe across the month, or choose Week for a full-width checklist.
+          </p>
+        )}
+        <div className="calendar-grid-scroll">
+          <div
+            className={
+              "calendar-grid " + (mode === "week" ? "calendar-week" : "")
+            }
+            role="group"
+            aria-label="Dates. Use arrow keys to move between dates."
+          >
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+              <span className="calendar-weekday" key={d}>
+                {d}
+              </span>
+            ))}
+            {dates.map((date) => {
+              const item = days.get(date);
+              const activities = [
+                ...(item?.tasks ?? []).map((t) => ({
+                  kind: "task" as const,
+                  record: t,
+                })),
+                ...(item?.habits ?? []).map((h) => ({
+                  kind: "habit" as const,
+                  record: h,
+                })),
+              ];
+              const limit = mode === "month" ? 3 : 6;
+              const remaining = activities.length - limit;
+              return (
+                <article
+                  key={date}
+                  role="group"
+                  aria-label={fullDate(date)}
+                  className={
+                    "calendar-cell" +
+                    (mode === "month" &&
+                    date.slice(0, 7) !== selected.slice(0, 7)
+                      ? " outside"
+                      : "")
+                  }
+                  data-selected={selected === date}
+                  data-today={date === today}
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) select(date, true);
+                  }}
+                >
+                  <button
+                    ref={(node) => {
+                      if (node) dateButtons.current.set(date, node);
+                      else dateButtons.current.delete(date);
+                    }}
+                    type="button"
+                    className="calendar-date-button"
+                    tabIndex={selected === date ? 0 : -1}
+                    aria-current={date === today ? "date" : undefined}
+                    aria-pressed={selected === date}
+                    aria-controls={panel ? "calendar-day-panel" : undefined}
+                    aria-expanded={panel && selected === date}
+                    aria-label={"Open " + fullDate(date)}
+                    onKeyDown={(e) => arrow(e, date)}
+                    onClick={() => select(date, true)}
                   >
-                    {complete === n && <Check size={11} />} {complete}/{n}
-                  </span>
-                )}
-                {overdue && <span className="calendar-overdue">Overdue</span>}
-                {boundary > 0 && (
-                  <span className="calendar-deadlines">{boundary} due</span>
-                )}
-                {mode === "week" &&
-                  item?.focusMs !== undefined &&
-                  item.focusMs > 0 && <small>{duration(item.focusMs)}</small>}
-              </button>
-            );
-          })}
+                    <span className="calendar-cell-date">
+                      {date.slice(-2).replace(/^0/, "")}
+                    </span>
+                    <span className="calendar-day-name">
+                      {label(date, { weekday: "short" })}
+                    </span>
+                  </button>
+                  <div className="calendar-cell-activities">
+                    {activities.slice(0, limit).map((activity) => {
+                      const record = activity.record;
+                      return (
+                        <label
+                          key={activity.kind + record.id}
+                          className={
+                            "calendar-inline-activity" +
+                            (record.completed ? " is-completed" : "")
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={record.completed}
+                            aria-label={
+                              (activity.kind === "habit"
+                                ? "Habit: "
+                                : "Task: ") +
+                              record.title +
+                              ", " +
+                              fullDate(date)
+                            }
+                            disabled={
+                              busy ||
+                              Boolean(error) ||
+                              (activity.kind === "habit" &&
+                                !activity.record.editable)
+                            }
+                            onChange={(e) =>
+                              activity.kind === "task"
+                                ? toggleTask(activity.record, e.target.checked)
+                                : toggleHabit(
+                                    activity.record,
+                                    date,
+                                    e.target.checked,
+                                  )
+                            }
+                          />
+                          <span title={record.title}>{record.title}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {remaining > 0 && (
+                    <button
+                      type="button"
+                      className="calendar-more"
+                      aria-label={
+                        "Show " +
+                        remaining +
+                        " more activities on " +
+                        fullDate(date)
+                      }
+                      onClick={() => select(date, true)}
+                    >
+                      + {remaining} more
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="calendar-add"
+                    disabled={busy || !ready || Boolean(error)}
+                    aria-label={"Add activity on " + fullDate(date)}
+                    onClick={() => {
+                      select(date);
+                      setEditor({ date });
+                    }}
+                  >
+                    <Plus size={12} />
+                    <span>Add activity</span>
+                  </button>
+                </article>
+              );
+            })}
+          </div>
         </div>
         {ready && (
           <div className="calendar-period">
@@ -461,6 +661,7 @@ export function CalendarPage({ revision }: { revision: number }) {
       </section>
       {panel && (
         <aside
+          ref={panelRef}
           className="card calendar-panel"
           id="calendar-day-panel"
           aria-label="Daily activity"
@@ -504,11 +705,6 @@ export function CalendarPage({ revision }: { revision: number }) {
               <Plus size={16} /> Add task for this day
             </button>
           </div>
-          {mutationError && (
-            <p className="error-banner" role="alert">
-              {mutationError}
-            </p>
-          )}
           {!day ? (
             <p className="muted">
               {error ? "Activity is unavailable." : "Loading daily activity…"}
@@ -518,8 +714,10 @@ export function CalendarPage({ revision }: { revision: number }) {
               <div className="calendar-progress">
                 <strong>
                   {total
-                    ? finished + " of " + total + " complete"
-                    : "No checklist activity yet"}
+                    ? finished === total
+                      ? "Everything checked off. Nicely done!"
+                      : finished + " of " + total + " complete"
+                    : "A little room to begin"}
                 </strong>
                 {total > 0 && (
                   <>
@@ -545,17 +743,20 @@ export function CalendarPage({ revision }: { revision: number }) {
               {day.habits.length ? (
                 <ul>
                   {day.habits.map((h) => (
-                    <li className="calendar-activity" key={h.id}>
+                    <li
+                      className={
+                        "calendar-activity" +
+                        (h.completed ? " is-completed" : "")
+                      }
+                      key={h.id}
+                    >
                       <label>
                         <input
                           type="checkbox"
                           checked={h.completed}
                           disabled={busy || !h.editable}
                           onChange={(e) =>
-                            toggle(
-                              "/habits/" + h.id + "/completions/" + selected,
-                              e.target.checked ? "PUT" : "DELETE",
-                            )
+                            toggleHabit(h, selected, e.target.checked)
                           }
                         />
                         <span>
@@ -600,6 +801,22 @@ export function CalendarPage({ revision }: { revision: number }) {
             </>
           )}
         </aside>
+      )}
+      {deleting && (
+        <TaskDeleteDialog
+          task={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={() =>
+            mutate("/tasks/" + deleting.id, "DELETE", undefined, (current) => ({
+              ...current,
+              days: current.days.map((d) => ({
+                ...d,
+                tasks: d.tasks.filter((t) => t.id !== deleting.id),
+                deadlines: d.deadlines.filter((t) => t.id !== deleting.id),
+              })),
+            }))
+          }
+        />
       )}
       {editor && (
         <TaskDialog
