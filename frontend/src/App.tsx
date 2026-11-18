@@ -338,7 +338,7 @@ export default function App() {
               {accountError}
             </p>
           )}
-          {loading && (
+          {loading && !onCalendar && (
             <p role="status" className="loading-state">
               Loading your saved tasks…
             </p>

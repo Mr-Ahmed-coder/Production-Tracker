@@ -1,12 +1,14 @@
 # Smart Productivity Calendar
 
+The calendar now displays a daily checkbox planner. See [Checkbox planner verification](CALENDAR-CHECKBOX-PLANNER.md) for the latest UI, screenshots and checks.
+
 Open **Calendar** in StudyMomentum. Month and Monday-based week views have previous, next and Today controls. Use the arrow keys to move between dates, Home/End to move within the week, and Enter or Space to open the daily panel. The panel uses StudyMomentum's existing task editor and task/habit write endpoints. It sits beside the calendar on wide screens and below it on smaller screens.
 
 ## Data and calculation rules
 
 - The optional Task `scheduledDate` is a date-only string. If absent or null, the task is planned on its existing `dueDate`. Changing the plan never changes the deadline or completion timestamp. An unfinished task is overdue once its **deadline** is before today in the saved analytics timezone. A different deadline is shown on its own date as a reference to the same task, and does not count twice.
 - The dashboard's Today’s Tasks shows tasks by planned date with the due-date fallback. Existing due-date filters, analytics due-date cohorts, and recorded completion-date trends retain their meanings.
-- Recurring habits use the scheduling history, archive pauses and local dates of each habit. Future scheduled habits appear as upcoming, with disabled checkboxes, and do not count toward elapsed totals. Archived history is read-only. Day markers are calculated from actual checklist records; empty dates stay neutral.
+- Recurring habits use the scheduling history, archive pauses and local dates of each habit. Future scheduled habits appear as upcoming, with disabled checkboxes, and do not count toward elapsed totals. Archived history is read-only. Checkbox states use actual task and habit records; empty dates show the date and Add Activity only.
 - Focus uses the same saved interval and timezone splitting logic as Analytics. Discarded sessions and paused time are excluded. Goals and milestone deadlines are separate from checklist progress.
 - Monthly totals exclude the neighboring-month cells shown in the grid. Combined completion markers are just checked items over eligible checklist items. The trend table shows task and habit totals separately.
 
