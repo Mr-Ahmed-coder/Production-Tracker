@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -16,7 +17,9 @@ import { recurringTaskRouter } from "./routes/recurringTasks.js";
 export const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
-app.use((_req, res, next) => {
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.set("X-Request-ID", req.requestId);
   res.set("Cache-Control", "no-store");
   res.set("X-Content-Type-Options", "nosniff");
   next();
@@ -105,6 +108,9 @@ app.get("/api/health", (_req, res) =>
   res.status(mongoose.connection.readyState === 1 ? 200 : 503).json({
     status: mongoose.connection.readyState === 1 ? "ok" : "unavailable",
     service: "prodtrack-api",
+    commit: /^[a-f0-9]{40}$/.test(process.env.RENDER_GIT_COMMIT || "")
+      ? process.env.RENDER_GIT_COMMIT
+      : null,
     database:
       mongoose.connection.readyState === 1 ? "connected" : "disconnected",
   }),
@@ -139,7 +145,7 @@ if (fs.existsSync(distPath)) {
   });
 }
 app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
-app.use((err, _req, res, _next) => {
+app.use((err, req, res, _next) => {
   if (err.name === "VersionError")
     return res.status(409).json({
       error: "This record changed in another request. Refresh and try again.",
@@ -166,6 +172,10 @@ app.use((err, _req, res, _next) => {
     return res.status(400).json({ error: "Invalid request data." });
   if (err.status && err.status < 500)
     return res.status(err.status).json({ error: err.message });
-  console.error("API request failed:", err.name);
+  console.error("API request failed", {
+    requestId: req.requestId,
+    method: req.method,
+    type: err.name,
+  });
   res.status(503).json({ error: "Service unavailable. Please try again." });
 });

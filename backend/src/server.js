@@ -43,7 +43,7 @@ try {
 } catch (err) {
   console.error(
     "API startup failed. Check your MongoDB configuration and connectivity.",
-    err?.message || "",
+    err?.name || "Error",
   );
   process.exit(1);
 }

@@ -14,7 +14,8 @@
     "start": "node backend/src/server.js",
     "lint": "npm run lint -w frontend",
     "test": "npm run test -w backend",
-    "typecheck": "npm run typecheck -w frontend"
+    "typecheck": "npm run typecheck -w frontend",
+    "smoke:deployment": "node scripts/smoke-deployment.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

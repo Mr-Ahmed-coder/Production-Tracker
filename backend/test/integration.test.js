@@ -82,6 +82,29 @@ test(
         );
       });
       await t.test(
+        "API proxy targets never fall through to SPA HTML and expose safe health metadata",
+        async () => {
+          const health = await request("/health");
+          assert.equal(health.data.database, "connected");
+          assert.equal(health.data.commit, null);
+          assert.match(health.headers.get("X-Request-ID"), /^[0-9a-f-]{36}$/);
+          assert.match(health.headers.get("cache-control"), /no-store/);
+          const missing = await request("/not-a-route");
+          assert.equal(missing.status, 404);
+          assert.match(
+            missing.headers.get("content-type"),
+            /application\/json/,
+          );
+          assert.match(missing.headers.get("cache-control"), /no-store/);
+          const noSession = await request("/auth/me");
+          assert.equal(noSession.status, 401);
+          assert.match(
+            noSession.headers.get("content-type"),
+            /application\/json/,
+          );
+        },
+      );
+      await t.test(
         "registration validates and hashes credentials; cookie-only session",
         async () => {
           const short7 = await request("/auth/register", {
@@ -89,7 +112,10 @@ test(
             body: { ...account, password: "1234567" },
           });
           assert.equal(short7.status, 400);
-          assert.equal(short7.data.error, "Password must contain 8–128 characters.");
+          assert.equal(
+            short7.data.error,
+            "Password must contain 8–128 characters.",
+          );
           assert.equal(
             (
               await request("/auth/register", {
@@ -111,19 +137,31 @@ test(
           // Verify 8-character password succeeds (no composition restrictions)
           const reg8 = await request("/auth/register", {
             method: "POST",
-            body: { name: "User Eight", email: "eight@example.test", password: "password" },
+            body: {
+              name: "User Eight",
+              email: "eight@example.test",
+              password: "password",
+            },
           });
           assert.equal(reg8.status, 201);
           // Verify 12-character password succeeds
           const reg12 = await request("/auth/register", {
             method: "POST",
-            body: { name: "User Twelve", email: "twelve@example.test", password: "passphrase12" },
+            body: {
+              name: "User Twelve",
+              email: "twelve@example.test",
+              password: "passphrase12",
+            },
           });
           assert.equal(reg12.status, 201);
           // Verify 20-character password succeeds
           const reg20 = await request("/auth/register", {
             method: "POST",
-            body: { name: "User Twenty", email: "twenty@example.test", password: "correct horse battery" },
+            body: {
+              name: "User Twenty",
+              email: "twenty@example.test",
+              password: "correct horse battery",
+            },
           });
           assert.equal(reg20.status, 201);
           const result = await request("/auth/register", {

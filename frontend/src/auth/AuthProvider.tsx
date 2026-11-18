@@ -1,28 +1,45 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { api, ApiError, messageOf } from "../lib/api";
 import { AuthContext, type User } from "./context";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const refresh = useCallback(async () => {
+  const generation = useRef(0);
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const turn = ++generation.current;
     setLoading(true);
     setError("");
     try {
-      const data = await api<{ user: User }>("/auth/me");
-      setUser(data.user);
+      const data = await api<{ user: User }>("/auth/me", { signal });
+      if (!signal?.aborted && turn === generation.current) setUser(data.user);
     } catch (e) {
-      setUser(null);
-      if (!(e instanceof ApiError && e.status === 401)) setError(messageOf(e));
+      if (signal?.aborted || turn !== generation.current) return;
+      if (e instanceof ApiError && e.status === 401) setUser(null);
+      else setError(messageOf(e));
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && turn === generation.current) setLoading(false);
     }
   }, []);
   useEffect(() => {
-    void refresh();
-    const clear = () => setUser(null);
+    const controller = new AbortController();
+    void refresh(controller.signal);
+    const clear = () => {
+      generation.current++;
+      setUser(null);
+      setLoading(false);
+    };
     window.addEventListener("prodtrack:unauthorized", clear);
-    return () => window.removeEventListener("prodtrack:unauthorized", clear);
+    return () => {
+      controller.abort();
+      window.removeEventListener("prodtrack:unauthorized", clear);
+    };
   }, [refresh]);
   async function signIn(
     mode: "login" | "register",
@@ -32,12 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: "POST",
       body: JSON.stringify(data),
     });
+    generation.current++;
+    setLoading(false);
     setError("");
     setUser(result.user);
   }
   async function logout() {
     await api("/auth/logout", { method: "POST" });
+    generation.current++;
     setUser(null);
+    setLoading(false);
   }
   return (
     <AuthContext.Provider

@@ -1,6 +1,14 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle2 } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
+  CheckCircle2,
+} from "lucide-react";
 import { useAuth } from "./context";
 import { messageOf } from "../lib/api";
 import { AuthIllustration } from "./AuthIllustration";
@@ -10,6 +18,13 @@ import App from "../App";
 export function AuthGate() {
   const auth = useAuth();
   const location = useLocation();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!auth.loading) return;
+    const timer = window.setTimeout(() => setSlow(true), 5000);
+    return () => clearTimeout(timer);
+  }, [auth.loading]);
   const authPage = ["/login", "/register"].includes(location.pathname);
 
   if (auth.loading) {
@@ -19,7 +34,11 @@ export function AuthGate() {
           <section className="auth-status-card" role="status">
             <div className="auth-status-spinner" aria-hidden="true" />
             <h2>Opening your workspace…</h2>
-            <p className="muted">Restoring your session</p>
+            <p className="muted">
+              {slow
+                ? "The server may be waking up. We are retrying safely; this can take about a minute."
+                : "Restoring your session"}
+            </p>
           </section>
         </div>
       </main>
@@ -112,7 +131,11 @@ function AuthPage() {
             aria-label="Welcome illustration and productivity overview"
           >
             <div className="auth-visual-header">
-              <Link className="auth-brand" to="/login" aria-label="StudyMomentum Home">
+              <Link
+                className="auth-brand"
+                to="/login"
+                aria-label="StudyMomentum Home"
+              >
                 <StudyMomentumWordmark size={24} />
               </Link>
               <span className="auth-pill-tag">Mindful Workspace</span>
@@ -123,19 +146,37 @@ function AuthPage() {
             </div>
 
             <div className="auth-visual-footer">
-              <h2 className="auth-visual-title">Focus Today. Grow Every Day.</h2>
+              <h2 className="auth-visual-title">
+                Focus Today. Grow Every Day.
+              </h2>
               <p className="auth-visual-desc">
-                A personal productivity platform for students, professionals, and lifelong learners.
+                A personal productivity platform for students, professionals,
+                and lifelong learners.
               </p>
               <div className="auth-visual-pills">
                 <span className="auth-pill">
-                  <CheckCircle2 size={13} className="pill-icon" aria-hidden="true" /> Server-timed Focus
+                  <CheckCircle2
+                    size={13}
+                    className="pill-icon"
+                    aria-hidden="true"
+                  />{" "}
+                  Server-timed Focus
                 </span>
                 <span className="auth-pill">
-                  <CheckCircle2 size={13} className="pill-icon" aria-hidden="true" /> Habit Streaks
+                  <CheckCircle2
+                    size={13}
+                    className="pill-icon"
+                    aria-hidden="true"
+                  />{" "}
+                  Habit Streaks
                 </span>
                 <span className="auth-pill">
-                  <CheckCircle2 size={13} className="pill-icon" aria-hidden="true" /> Zero Fluff
+                  <CheckCircle2
+                    size={13}
+                    className="pill-icon"
+                    aria-hidden="true"
+                  />{" "}
+                  Zero Fluff
                 </span>
               </div>
             </div>
@@ -146,7 +187,11 @@ function AuthPage() {
             <div className="auth-form-card">
               <div className="auth-form-header">
                 <div className="auth-mobile-brand">
-                  <Link className="auth-brand" to="/login" aria-label="StudyMomentum Home">
+                  <Link
+                    className="auth-brand"
+                    to="/login"
+                    aria-label="StudyMomentum Home"
+                  >
                     <StudyMomentumWordmark size={22} />
                   </Link>
                 </div>
@@ -170,7 +215,11 @@ function AuthPage() {
                       Your name
                     </label>
                     <div className="auth-input-wrapper">
-                      <User size={18} className="auth-input-icon" aria-hidden="true" />
+                      <User
+                        size={18}
+                        className="auth-input-icon"
+                        aria-hidden="true"
+                      />
                       <input
                         id="auth-name-input"
                         name="name"
@@ -190,7 +239,11 @@ function AuthPage() {
                     Email
                   </label>
                   <div className="auth-input-wrapper">
-                    <Mail size={18} className="auth-input-icon" aria-hidden="true" />
+                    <Mail
+                      size={18}
+                      className="auth-input-icon"
+                      aria-hidden="true"
+                    />
                     <input
                       id="auth-email-input"
                       name="email"
@@ -214,23 +267,35 @@ function AuthPage() {
                     )}
                   </div>
                   <div className="auth-input-wrapper">
-                    <Lock size={18} className="auth-input-icon" aria-hidden="true" />
+                    <Lock
+                      size={18}
+                      className="auth-input-icon"
+                      aria-hidden="true"
+                    />
                     <input
                       id="auth-password-input"
                       name="password"
                       type={showPassword ? "text" : "password"}
-                      autoComplete={register ? "new-password" : "current-password"}
+                      autoComplete={
+                        register ? "new-password" : "current-password"
+                      }
                       required
                       minLength={register ? 8 : undefined}
                       maxLength={128}
-                      placeholder={register ? "At least 8 characters" : "Enter your password"}
+                      placeholder={
+                        register
+                          ? "At least 8 characters"
+                          : "Enter your password"
+                      }
                       className="auth-input auth-input-password"
                     />
                     <button
                       type="button"
                       className="auth-password-toggle"
                       onClick={() => setShowPassword((prev) => !prev)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
                       title={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -249,14 +314,28 @@ function AuthPage() {
                   disabled={busy}
                   type="submit"
                 >
-                  <span>{busy ? "Please wait…" : register ? "Create account" : "Sign in"}</span>
-                  {!busy && <ArrowRight size={17} className="auth-btn-icon" aria-hidden="true" />}
+                  <span>
+                    {busy
+                      ? "Please wait…"
+                      : register
+                        ? "Create account"
+                        : "Sign in"}
+                  </span>
+                  {!busy && (
+                    <ArrowRight
+                      size={17}
+                      className="auth-btn-icon"
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
               </form>
 
               <footer className="auth-form-footer">
                 <p className="auth-switch-text">
-                  {register ? "Already have an account?" : "New to StudyMomentum?"}{" "}
+                  {register
+                    ? "Already have an account?"
+                    : "New to StudyMomentum?"}{" "}
                   <Link
                     to={register ? "/login" : "/register"}
                     state={location.state}

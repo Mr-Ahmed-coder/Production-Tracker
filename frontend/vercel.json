@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -12,6 +11,15 @@
     }
   ],
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-StudyMomentum-Routing",
+          "value": "spa-fallback-v2"
+        }
+      ]
+    },
     {
       "source": "/api/(.*)",
       "headers": [
