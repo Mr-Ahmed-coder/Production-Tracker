@@ -16,6 +16,9 @@ test("Vercel API proxy precedes SPA routing and private API responses are not ca
   const api = config.rewrites.findIndex((r) => r.source === "/api/:path*");
   const spa = config.rewrites.findIndex((r) => r.destination === "/index.html");
   assert.ok(api >= 0 && api < spa);
+  const apiSlash = config.rewrites.findIndex((r) => r.source === "/api/");
+  assert.ok(apiSlash >= 0 && apiSlash < spa);
+  assert.equal(config.rewrites[apiSlash].destination, "https://production-tracker-k7qd.onrender.com/api");
   assert.match(
     config.rewrites[api].destination,
     /^https:\/\/[^/]+\.onrender\.com\/api\/:path\*$/,

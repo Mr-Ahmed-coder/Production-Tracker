@@ -9,6 +9,7 @@ Before this change, the production root served the current built frontend, but d
 ## Routing and API safety
 
 - Existing proxy: `/api/:path*` → `https://production-tracker-k7qd.onrender.com/api/:path*`.
+- Explicit `/api/` → backend `/api` prevents the trailing-slash API root falling through to React (verified as an edge case during the first production smoke run).
 - All remaining client routes → `/index.html`.
 - API errors remain JSON; private API responses retain `no-store`.
 - Session cookies remain HTTP-only, Secure and host-only in production. CSRF headers and trusted-origin checks are unchanged. No tokens are placed in browser storage.

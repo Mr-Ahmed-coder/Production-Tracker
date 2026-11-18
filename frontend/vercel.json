@@ -6,6 +6,10 @@
       "destination": "https://production-tracker-k7qd.onrender.com/api/:path*"
     },
     {
+      "source": "/api/",
+      "destination": "https://production-tracker-k7qd.onrender.com/api"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
