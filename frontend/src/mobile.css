@@ -1,0 +1,237 @@
+/* Mobile/coarse-pointer overrides only. Desktop layout and colors stay in styles.css. */
+@media (max-width: 900px), (any-pointer: coarse) {
+  input,
+  select,
+  textarea,
+  [contenteditable="true"] {
+    /* iOS focus zoom threshold; no user-scalable/maximum-scale restrictions. */
+    font-size: 16px !important;
+    font-size: max(16px, 1rem) !important;
+  }
+  .record-modal,
+  dialog {
+    max-width: calc(
+      100% - 24px - env(safe-area-inset-left, 0px) -
+        env(safe-area-inset-right, 0px)
+    );
+    max-height: calc(100vh - 32px);
+    max-height: calc(
+      var(--visual-viewport-height, 100dvh) - 32px -
+        env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)
+    );
+    overflow: auto;
+    scroll-padding-block: 20px;
+  }
+  [data-keyboard="open"] dialog[open] {
+    top: calc(
+      var(--visual-viewport-top, 0px) + 12px + env(safe-area-inset-top, 0px)
+    );
+    bottom: auto;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 900px), (any-pointer: coarse) and (max-height: 500px) {
+  .app-shell,
+  .auth-viewport,
+  .auth-shell {
+    min-height: 100vh;
+    min-height: 100svh;
+  }
+  .sidebar {
+    height: calc(100svh - 16px);
+  }
+  .workspace {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .app-shell {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .workspace,
+  .auth-viewport,
+  .auth-shell {
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .auth-viewport,
+  .auth-shell {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    align-items: safe center;
+    /* Do not hide an overflow bug or trap a field above the keyboard. */
+    overflow-x: visible;
+  }
+  .auth-device-frame,
+  .auth-form-card,
+  .auth-status-card,
+  .auth-input-wrapper {
+    min-width: 0;
+  }
+  .heading-actions,
+  .module-toolbar,
+  .record-actions,
+  .record-filters,
+  .calendar-controls,
+  .task-filters,
+  .timer-actions {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .heading-actions > *,
+  .record-filters > *,
+  .task-filters > *,
+  .form-grid > *,
+  .record-form-grid > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .search-box {
+    min-width: 0;
+    max-width: 100%;
+  }
+  /* A long task title in a native option must not widen the focus history row. */
+  .history-filter-row {
+    flex-wrap: wrap;
+  }
+  .history-filters {
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 160px;
+  }
+  .history-filters select {
+    width: 100%;
+    min-width: 0;
+  }
+  .popover {
+    width: min(
+      290px,
+      calc(
+        100vw - 32px - env(safe-area-inset-left, 0px) -
+          env(safe-area-inset-right, 0px)
+      )
+    );
+    overflow-wrap: anywhere;
+  }
+  img,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
+  textarea {
+    resize: vertical;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --mobile-nav-height: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+  .sidebar {
+    left: 0;
+    right: 0;
+    width: auto;
+    height: var(--mobile-nav-height);
+    padding: 8px max(7px, env(safe-area-inset-right, 0px))
+      calc(8px + env(safe-area-inset-bottom, 0px))
+      max(7px, env(safe-area-inset-left, 0px));
+  }
+  .sidebar nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    height: 58px;
+    flex-shrink: 0;
+    align-items: center;
+    scrollbar-width: thin;
+  }
+  .sidebar nav .nav-icon {
+    flex: 0 0 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+  .workspace {
+    padding-bottom: calc(var(--mobile-nav-height) + 24px);
+  }
+  .toast {
+    bottom: calc(var(--mobile-nav-height) + 12px);
+  }
+  [data-keyboard="open"] .sidebar {
+    display: none;
+  }
+  [data-keyboard="open"] .workspace {
+    padding-bottom: 24px;
+  }
+  [data-keyboard="open"] .toast {
+    bottom: 12px;
+  }
+  .form-grid,
+  .record-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .page-heading,
+  .heading-actions {
+    width: 100%;
+  }
+  .heading-actions > .search-box {
+    flex: 1 1 150px;
+  }
+  .priority-bar-row {
+    grid-template-columns: minmax(60px, 100px) minmax(0, 1fr) minmax(45px, 70px);
+  }
+  .calendar-main,
+  .calendar-panel,
+  .calendar-grid-scroll,
+  .review-table-wrap {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .calendar-grid-scroll,
+  .review-table-wrap {
+    overscroll-behavior-x: contain;
+  }
+  dialog {
+    padding: 20px;
+  }
+}
+
+/* Stable page floors also cover large touch tablets without narrowing their layout. */
+@media (any-pointer: coarse) {
+  .app-shell,
+  .auth-viewport,
+  .auth-shell {
+    min-height: 100svh;
+  }
+}
+
+/* A phone rotated into landscape still has a notch and can have a short viewport. */
+@media (any-pointer: coarse) and (max-height: 500px) {
+  .sidebar {
+    overflow-y: auto;
+  }
+  .sidebar nav {
+    flex-shrink: 0;
+  }
+  .app-shell,
+  .auth-viewport,
+  .auth-shell {
+    min-height: 100svh;
+  }
+  .workspace,
+  .auth-viewport,
+  .auth-shell {
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+}

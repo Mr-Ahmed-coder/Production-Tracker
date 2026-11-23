@@ -12,6 +12,8 @@ import ProductivitySettings from "../models/ProductivitySettings.js";
 import DailyReview from "../models/DailyReview.js";
 import RecurringTask from "../models/RecurringTask.js";
 import TaskOccurrence from "../models/TaskOccurrence.js";
+import NotificationSettings from "../models/NotificationSettings.js";
+import EmailDelivery from "../models/EmailDelivery.js";
 mongoose.set("bufferCommands", false);
 export async function connectDatabase() {
   if (!process.env.MONGODB_URI)
@@ -34,6 +36,8 @@ export async function connectDatabase() {
     serverSelectionTimeoutMS: 15000,
   });
   await Promise.all([
+    NotificationSettings.init(),
+    EmailDelivery.init(),
     RecurringTask.init(),
     TaskOccurrence.init(),
     FocusSession.init(),

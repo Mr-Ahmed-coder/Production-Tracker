@@ -14,6 +14,7 @@ import { messageOf } from "../lib/api";
 import { AuthIllustration } from "./AuthIllustration";
 import { StudyMomentumWordmark } from "../components/BrandLogo";
 import App from "../App";
+import { UnsubscribePage } from "../notifications/UnsubscribePage";
 
 export function AuthGate() {
   const auth = useAuth();
@@ -26,6 +27,8 @@ export function AuthGate() {
     return () => clearTimeout(timer);
   }, [auth.loading]);
   const authPage = ["/login", "/register"].includes(location.pathname);
+
+  if (location.pathname === '/email/unsubscribe') return <UnsubscribePage />;
 
   if (auth.loading) {
     return (
@@ -69,7 +72,7 @@ export function AuthGate() {
   if (!auth.user) {
     if (!authPage) {
       return (
-        <Navigate to="/login" replace state={{ from: location.pathname }} />
+        <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />
       );
     }
     return <AuthPage key={location.pathname} />;

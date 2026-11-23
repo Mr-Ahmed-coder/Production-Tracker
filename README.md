@@ -2,6 +2,10 @@
 
 A personal productivity platform for students, professionals, and lifelong learners.
 
+Mobile viewport fixes, installable PWA assets, privacy rules and outstanding real-device checks are documented in [Mobile and PWA verification](docs/MOBILE-PWA.md).
+
+Optional daily email reminders (disabled by default), verification, independent worker setup, costs and safe activation are documented in [Email reminders](docs/EMAIL-REMINDERS.md).
+
 Personal productivity insights, Pomodoro focus presets, offline chime alerts, data ownership exports, collection pagination, and verification are documented in the [Phase 5 verification report](docs/PHASE5-VERIFICATION.md). The complete project architecture and master guide is in the [Project handoff](docs/PROJECT_HANDOFF.md). Previous module verifications remain in [Phase 4 verification](docs/PHASE4-VERIFICATION.md) and [Phase 3 local verification](docs/PHASE3-LOCAL-VERIFICATION.md).
 
 StudyMomentum (formerly ProdTrack) is a personal MERN productivity application with cookie authentication, MongoDB-backed tasks, private notes and daily journals, measurable goals, timezone-aware habit tracking, server-timed focus sessions, and productivity analytics. The signature cream-and-lime aesthetic is preserved.

@@ -7,7 +7,9 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "test": "node --test",
-    "dev:isolated": "node scripts/dev-isolated.js"
+    "dev:isolated": "node scripts/dev-isolated.js",
+    "reminders:dry-run": "node scripts/reminders.js",
+    "reminders:run": "node scripts/reminders.js --send"
   },
   "dependencies": {
     "cors": "^2.8.5",

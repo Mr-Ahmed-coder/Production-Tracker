@@ -45,6 +45,7 @@ import { FocusPage } from "./productivity/FocusPage";
 import { AnalyticsPage } from "./productivity/AnalyticsPage";
 import { DailyReviewPage } from "./productivity/DailyReviewPage";
 import { FocusSettings } from "./productivity/FocusSettings";
+import { EmailPreferences } from "./notifications/EmailPreferences";
 import { InsightsPage } from "./productivity/InsightsPage";
 import { ExportCard } from "./productivity/ExportCard";
 import { hours } from "./productivity/format";
@@ -675,6 +676,7 @@ export default function App() {
                   </div>
                   <LegacyImport onImport={importTasks} busy={busy} />
                   <FocusSettings store={productivity} />
+                  <EmailPreferences timeZone={productivity.settings?.timeZone} />
                   <ExportCard />
                   <div className="setting-row">
                     <div>

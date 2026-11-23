@@ -3670,3 +3670,11 @@ dialog .primary-button {
   overflow: auto;
   margin-top: 20px;
 }
+/* Email preferences reuse the existing Settings form and card language. */
+.email-preferences { margin-block: 24px; }
+.email-preferences form { display: grid; gap: 16px; }
+.email-preferences .email-toggle { display: flex; align-items: center; gap: 10px; }
+.email-preferences .email-toggle input { width: 18px; height: 18px; accent-color: #92ac19; }
+.email-preferences > .secondary-button { margin-top: 14px; }
+.email-confirm { padding: 16px; border: 1px solid #dce6b8; border-radius: 16px; margin-bottom: 18px; }
+@media (max-width: 600px) { .email-preferences .setting-row { align-items: flex-start; flex-wrap: wrap; gap: 12px; } }

@@ -6,9 +6,14 @@ import refresh from "eslint-plugin-react-refresh";
 export default tseslint.config(
   { ignores: ["dist"] },
   {
-    files: ["src/lib/request.js"],
+    files: ["src/lib/request.js", "src/lib/mobileViewport.js"],
     ...js.configs.recommended,
     languageOptions: { globals: globals.browser },
+  },
+  {
+    files: ["public/sw.js"],
+    ...js.configs.recommended,
+    languageOptions: { globals: globals.serviceworker },
   },
   {
     files: ["**/*.{ts,tsx}"],
